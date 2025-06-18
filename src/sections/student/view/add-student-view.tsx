@@ -98,26 +98,29 @@ export function AddStudentView({ editingStudent }: { editingStudent?: Student | 
   const validateField = (field: keyof Student, value: string) => {
     if (!value) return `${field} is required`;
     switch (field) {
-      case 'full_name':
-      case 'father_name':
-      case 'mother_name':
-        if (!/^[A-Za-z\s]+$/.test(value)) return `${field} should only contain letters`;
-        break;
-      case 'mobile_number':
-        if (!/^\d{10}$/.test(value)) return 'Mobile number must be 10 digits';
-        break;
-      case 'aadhaar_no':
-        if (value && !/^\d{12}$/.test(value)) return 'Aadhaar number must be 12 digits';
-        break;
-      case 'email':
-        if (value && !/\S+@\S+\.\S+/.test(value)) return 'Invalid email';
-        break;
-      case 'dob':
-      case 'admission_date':
-        if (new Date(value).toString() === 'Invalid Date') return 'Invalid date';
-        break;
-    }
-    return '';
+  case 'full_name':
+  case 'father_name':
+  case 'mother_name':
+    if (!/^[A-Za-z\s]+$/.test(value)) return `${field} should only contain letters`;
+    break;
+  case 'mobile_number':
+    if (!/^\d{10}$/.test(value)) return 'Mobile number must be 10 digits';
+    break;
+  case 'aadhaar_no':
+    if (value && !/^\d{12}$/.test(value)) return 'Aadhaar number must be 12 digits';
+    break;
+  case 'email':
+    if (value && !/\S+@\S+\.\S+/.test(value)) return 'Invalid email';
+    break;
+  case 'dob':
+  case 'admission_date':
+    if (new Date(value).toString() === 'Invalid Date') return 'Invalid date';
+    break;
+  default:
+    break; // ✅ Added to satisfy ESLint's `default-case` rule
+}
+return '';
+
   };
 
   const validateStep = () => {
