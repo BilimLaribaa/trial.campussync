@@ -1,20 +1,20 @@
 mod class;
 mod db;
 mod enquiry;
+mod image;
 mod migration;
 mod school;
 mod staff;
-mod image;
 mod students; // Import the students module
 
 use db::establish_connection;
 use log::error;
 use migration::run_migrations;
 use rusqlite::Connection;
+use std::fs;
 use std::sync::Mutex;
 use tauri::Manager;
 use tauri::Runtime;
-use std::fs;
 
 // Database state that will be shared across the application
 pub struct DbState(pub Mutex<Connection>);
@@ -30,6 +30,7 @@ async fn read_file_content(path: String) -> Result<Vec<u8>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -73,6 +74,7 @@ pub fn run() {
             enquiry::create_note,
             enquiry::get_enquiry_notes,
             enquiry::add_enquiry_note,
+           
             // School commands
             school::get_school_details,
             school::upsert_school_details,
@@ -90,16 +92,22 @@ pub fn run() {
             staff::delete_staff,
             // Student commands (updated)
             students::create_student1,  // Create student command
-            students::get_all_student1,  // Get all students command
+            students::get_all_student1, // Get all students command
+            students::get_student1,     // Get student command
             students::create_student2,  // Get student command
-            students::get_all_student2,  // Update student command
+            students::get_all_student2, // Update student command
+            students::get_student2,     // Update student command
             students::create_student3,  // Get student command
-            students::get_all_student3,  // feth student step 3 command
-            students::delete_student,  // delet student command
-             students::get_student1,  // Get student command
-            students::get_student2,  // Update student command
-            students::get_student3,  // Update student command
-        
+            students::get_all_student3, // feth student step 3 command
+            students::get_student3,     // Update student command
+            students::create_student4,  // Create student command
+            students::get_all_student4, // Get all students command
+            students::get_student4,     // Update student command
+            students::delete_student,   // delet student command
+            students::get_student_document,   // delet student command
+            students::get_student_document_path,   // delet student command
+            students::save_student_document,   // delet student command
+            students::download_student_document,
             // Image commands
             image::save_image,
             image::get_image_path,
@@ -122,9 +130,6 @@ fn save_file_rust(_content: String) -> Result<(), String> {
 
 pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("example")
-        .invoke_handler(tauri::generate_handler![
-            greet,
-            save_file_rust
-        ])
+        .invoke_handler(tauri::generate_handler![greet, save_file_rust])
         .build()
 }

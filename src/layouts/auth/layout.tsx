@@ -41,7 +41,9 @@ export function AuthLayout({
   layoutQuery = 'md',
 }: AuthLayoutProps) {
   const renderHeader = () => {
-    const headerSlotProps: HeaderSectionProps['slotProps'] = { container: { maxWidth: false } };
+    const headerSlotProps: HeaderSectionProps['slotProps'] = {
+      container: { maxWidth: false },
+    };
 
     const headerSlots: HeaderSectionProps['slots'] = {
       topArea: (
@@ -49,18 +51,11 @@ export function AuthLayout({
           This is an info Alert.
         </Alert>
       ),
-      leftArea: (
-        <>
-          {/** @slot Logo */}
-         
-        </>
-      ),
-      rightArea: (
-        <>
-        
-        </>
-      ),
+      leftArea: <></>,
+      rightArea: <></>,
     };
+
+    const headerSx = slotProps?.header?.sx;
 
     return (
       <HeaderSection
@@ -71,9 +66,7 @@ export function AuthLayout({
         slotProps={merge(headerSlotProps, slotProps?.header?.slotProps ?? {})}
         sx={[
           { position: { [layoutQuery]: 'fixed' } },
-          ...(Array.isArray(slotProps?.header?.sx)
-            ? (slotProps?.header?.sx ?? [])
-            : [slotProps?.header?.sx]),
+          ...(Array.isArray(headerSx) ? headerSx : headerSx ? [headerSx] : []),
         ]}
       />
     );
@@ -81,65 +74,103 @@ export function AuthLayout({
 
   const renderFooter = () => null;
 
-  const renderMain = () => (
-    <MainSection
-      {...slotProps?.main}
-      sx={[
-        (theme) => ({
-          alignItems: 'center',
-          p: theme.spacing(3, 2, 10, 2),
-          [theme.breakpoints.up(layoutQuery)]: {
+  const renderMain = () => {
+    const mainSx = slotProps?.main?.sx;
+    const contentSx = slotProps?.content?.sx;
+
+    return (
+      <MainSection
+        {...slotProps?.main}
+        sx={[
+          (theme) => ({
+            display: 'flex',
+            flexDirection: 'row',
+            height: '100vh',
+            overflow: 'hidden',
+            [theme.breakpoints.down(layoutQuery)]: {
+              flexDirection: 'column',
+            },
+          }),
+          ...(Array.isArray(mainSx) ? mainSx : mainSx ? [mainSx] : []),
+        ]}
+      >
+        {/* Left Column without background image */}
+        <Box
+          sx={{
+            flex: 1,
+            position: 'relative',
+            backgroundColor: 'transparent',
+            height: '100%',
+          }}
+        >
+          {/* CampusSync Logo */}
+          <Box
+            component="img"
+            src="https://campussync.in/img/logo.png"
+            alt="CampusSync Logo"
+            sx={{
+              position: 'absolute',
+              top: 24,
+              left: 24,
+              height: 120,
+              width: 'auto',
+              zIndex: 2,
+            }}
+          />
+        </Box>
+
+        {/* Right Form Column */}
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
-            p: theme.spacing(10, 0, 10, 0),
-          },
-        }),
-        ...(Array.isArray(slotProps?.main?.sx)
-          ? (slotProps?.main?.sx ?? [])
-          : [slotProps?.main?.sx]),
-      ]}
-    >
-      <AuthContent {...slotProps?.content}>{children}</AuthContent>
-    </MainSection>
-  );
+            height: '100%',
+            px: 3,
+          }}
+        >
+          <AuthContent
+            {...slotProps?.content}
+            sx={[
+              {
+                width: '100%',
+                maxWidth: 480,
+                height: 'auto',
+                boxShadow: 3,
+              },
+              ...(Array.isArray(contentSx)
+                ? contentSx
+                : contentSx
+                  ? [contentSx]
+                  : []),
+            ]}
+          >
+            {children}
+          </AuthContent>
+        </Box>
+      </MainSection>
+    );
+  };
 
   return (
     <LayoutSection
-      /** **************************************
-       * @Header
-       *************************************** */
       headerSection={renderHeader()}
-      /** **************************************
-       * @Footer
-       *************************************** */
       footerSection={renderFooter()}
-      /** **************************************
-       * @Styles
-       *************************************** */
       cssVars={{ '--layout-auth-content-width': '420px', ...cssVars }}
       sx={[
-        (theme) => ({
+        {
           position: 'relative',
-          '&::before': backgroundStyles(),
-        }),
-        ...(Array.isArray(sx) ? sx : [sx]),
+          minHeight: '100vh',
+          backgroundImage: 'url(/assets/background_img.jpg)', // ✅ Full-page background
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
       ]}
     >
       {renderMain()}
     </LayoutSection>
   );
 }
-
-// ----------------------------------------------------------------------
-
-const backgroundStyles = (): CSSObject => ({
-  zIndex: 1,
-  opacity: 0.24,
-  width: '100%',
-  height: '100%',
-  content: "''",
-  position: 'absolute',
-  backgroundSize: 'cover',
-  backgroundRepeat: 'no-repeat',
-  backgroundPosition: 'center center',
-  backgroundImage: 'url(/assets/background/overlay.jpg)',
-});

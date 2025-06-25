@@ -20,22 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost",
-      "assetProtocol": {
-    "enable": true,
-    "scope": [
-      "$APPDATA/com.campussync.com/**",
-      "$RESOURCE/**"
-    ]
-  }
-    }
-  },
-  "plugins": {
-    "fs": {
-      "scope": [
-        "$APPDATA/com.campussync.com",
-        "$APPDATA/com.campussync.com/**"
-      ]
+      "csp": null
     }
   },
   "bundle": {

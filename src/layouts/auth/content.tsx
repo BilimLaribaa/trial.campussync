@@ -17,7 +17,7 @@ export function AuthContent({ sx, children, className, ...other }: AuthContentPr
       sx={[
         (theme) => ({
           py: 5,
-          px: 3,
+          px: 5,
           width: 1,
           zIndex: 2,
           borderRadius: 2,

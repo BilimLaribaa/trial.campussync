@@ -28,30 +28,30 @@ export const navData = [
     path: '/Dashboard/student/add',
     icon: icon('ic-user'),
   },
-  // {
-  //   title: 'user',
-  //   path: '/Dashboard/user',
-  //   icon: icon('ic-user'),
-  // },
+  {
+    title: 'user',
+    path: '/Dashboard/user',
+    icon: icon('ic-user'),
+  },
   {
     title: 'Enquiry',
     path: '/Dashboard/enquiry',
     icon: icon('ic-user'),
   },
-  // {
-  //   title: 'Class',
-  //   path: '/Dashboard/class',
-  //   icon: icon('ic-user'),
-  // }
-  // {
-  //   title: 'Staff',
-  //   path: '/Dashboard/staff',
-  //   icon: icon('ic-user'),
-  // },
-  // {
-  //   title: 'Add Staff',
-  //   path: '/Dashboard/staff/add',
-  //   icon: icon('ic-user'),
-  // }
+  {
+    title: 'Class',
+    path: '/Dashboard/class',
+    icon: icon('ic-user'),
+  },
+  {
+    title: 'Staff',
+    path: '/Dashboard/staff',
+    icon: icon('ic-user'),
+  },
+  {
+    title: 'Add Staff',
+    path: '/Dashboard/staff/add',
+    icon: icon('ic-user'),
+  }
 
 ];

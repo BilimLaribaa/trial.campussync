@@ -1,135 +1,363 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { appDataDir, join } from '@tauri-apps/api/path';
 
+import { TextField } from '@mui/material';
 import {
-  Box, Card, Stack, Button, TextField, Typography, Avatar,
+  Box, Card, Stack, Button, Typography, Avatar,
   ListItemText, ListItemAvatar, ListItem, ListItemButton, List,
-  ToggleButton, ToggleButtonGroup
+  ToggleButton, ToggleButtonGroup, Alert
 } from '@mui/material';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
-type StudentStep1 = {
+type StudentBasic = {
+  id: number;
+  gr_number: string;
+  student_id: string;
+  roll_number: string;
   full_name: string;
-  gender: string;
   dob: string;
-  aadhaar_no?: string;
-  religion: string;
-  caste: string;
-  nationality: string;
-  mobile_number: string;
-  email?: string;
-  address: string;
-};
-
-type StudentStep2 = {
-  id: number;
-  father_name: string;
+  gender: string;
   mother_name: string;
-  father_occupation: string;
-  mother_occupation: string;
-  father_education: string;
-  mother_education: string;
-  emergency_contact: string;
+  father_name: string;
+  nationality: string;
+  profile_image: string;
+  class_id: string;
+  section: string;
+  academic_year: string;
 };
 
-type StudentStep3 = {
+type StudentContact = {
   id: number;
-  prev_school?: string;
-  last_class?: string;
-  admission_date?: string;
-  class_id?: number;
+  email: string;
+  mobile_number: string;
+  alternate_contact_number: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postal_code: string;
+  guardian_contact_info: string;
+};
+
+type StudentHealth = {
+  id: number;
+  blood_group: string;
   status: string;
+  admission_date: string;
+  weight_kg: number;
+  height_cm: number;
+  hb_range: string;
+  medical_conditions: string;
+  emergency_contact_person: string;
+  emergency_contact: string;
+  vaccination_certificate: string;
 };
 
-type FullStudent = {
+type StudentDocuments = {
   id: number;
-  step1: StudentStep1;
-  step2?: StudentStep2;
-  step3?: StudentStep3;
+  birth_certificate: string;
+  transfer_certificate: string;
+  previous_academic_records: string;
+  address_proof: string;
+  id_proof: string;
+  passport_photo: string;
+  medical_certificate: string;
+  vaccination_certificate: string;
+  other_documents: string;
 };
 
 export function StudentView() {
-  const [students, setStudents] = useState<FullStudent[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<FullStudent | null>(null);
-  const [infoTab, setInfoTab] = useState<'personal' | 'guardian' | 'background'>('personal');
+  const [basicInfo, setBasicInfo] = useState<StudentBasic[]>([]);
+  const [contactInfo, setContactInfo] = useState<StudentContact[]>([]);
+  const [healthInfo, setHealthInfo] = useState<StudentHealth[]>([]);
+  const [documentsInfo, setDocumentsInfo] = useState<StudentDocuments[]>([]);
+  const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [infoTab, setInfoTab] = useState<'general' | 'contact' | 'health' | 'documents'>('general');
   const [cardHeight, setCardHeight] = useState<number | undefined>(undefined);
+  const [classMap, setClassMap] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image');
+  const [downloadStatus, setDownloadStatus] = useState<{success: boolean, message: string} | null>(null);
   const infoRef = useRef<HTMLDivElement>(null);
 
   const navigate = useNavigate();
 
-  const [classOptions, setClassOptions] = useState<{ id: number, class_name: string }[]>([]);
-
-  const getClassName = (id?: number) => {
-    if (!id) return '-';
-    const found = classOptions.find(cls => cls.id === id);
-    return found ? found.class_name : `ID ${id}`;
-  };
-
   const handleDelete = async () => {
-    if (!selectedStudent) return;
+    if (!selectedStudentId) return;
+    
+    const student = basicInfo.find(s => s.id === selectedStudentId);
+    if (!student) return;
 
-    const confirm = window.confirm(`Are you sure you want to delete ${selectedStudent.step1.full_name}?`);
+    const confirm = window.confirm(`Are you sure you want to delete ${student.full_name}?`);
     if (!confirm) return;
 
     try {
-      await invoke('delete_student', { id: selectedStudent.id });
-
-      const updated = students.filter((s) => s.id !== selectedStudent.id);
-      setStudents(updated);
-      setSelectedStudent(updated[0] || null);
-    } catch (error) {
-      console.error('Failed to delete student:', error);
-      alert('Failed to delete student.');
+      await invoke('delete_student', { id: selectedStudentId });
+      const updated = basicInfo.filter((s) => s.id !== selectedStudentId);
+      setBasicInfo(updated);
+      setSelectedStudentId(updated[0]?.id || null);
+    } catch (err) {
+      console.error('Failed to delete student:', err);
+      setError('Failed to delete student');
     }
   };
 
-  useEffect(() => {
-    const fetchStudents = async () => {
-      const s1 = await invoke<[number, StudentStep1][]>('get_all_student1');
-      const s2 = await invoke<[number, StudentStep2][]>('get_all_student2');
-      const s3 = await invoke<[number, StudentStep3][]>('get_all_student3');
+  const getDocumentPaths = async (documents: StudentDocuments) => {
+  const paths: Record<string, string> = {};
+  
+  const docEntries = [
+    ['birth_certificate', documents.birth_certificate],
+    ['transfer_certificate', documents.transfer_certificate],
+    ['previous_academic_records', documents.previous_academic_records],
+    ['address_proof', documents.address_proof],
+    ['id_proof', documents.id_proof],
+    ['passport_photo', documents.passport_photo],
+    ['medical_certificate', documents.medical_certificate],
+    ['vaccination_certificate', documents.vaccination_certificate],
+    ['other_documents', documents.other_documents],
+  ] as const;
 
-      const s2Map = new Map(s2.map(([id, data]) => [id, data]));
-      const s3Map = new Map(s3.map(([id, data]) => [id, data]));
-
-      const all: FullStudent[] = s1.map(([id, data]) => ({
-        id,
-        step1: data,
-        step2: s2Map.get(id),
-        step3: s3Map.get(id),
-      }));
-
-      setStudents(all);
-      setSelectedStudent(all[0] || null);
-    };
-
-    fetchStudents();
-  }, []);
-
-  useEffect(() => {
-    const fetchClasses = async () => {
+  for (const [key, filename] of docEntries) {
+    if (filename) {
       try {
-        const classes = await invoke<{ id: number, class_name: string }[]>('get_all_classes');
-        setClassOptions(classes);
-      } catch (error) {
-        console.error("Failed to fetch classes", error);
+        // Get the full file path from the backend
+        const filePath = await invoke<string>('get_student_document_path', { 
+          fileName: filename 
+        });
+        
+        // Store the file path
+        paths[key] = filePath;
+        
+        // Determine file type for preview
+        if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
+          setPreviewType('image');
+        } else if (filename.endsWith('.pdf')) {
+          setPreviewType('pdf');
+        } else {
+          setPreviewType('other');
+        }
+      } catch (err) {
+        console.error(`Failed to get document ${key}:`, err);
+        paths[key] = '';
+      }
+    }
+  }
+
+  return paths;
+};
+function getMimeType(filename: string): string {
+  const extension = filename.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'pdf':
+      return 'application/pdf';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+ const handleDownload = async (filepath: string) => {
+  try {
+    setDownloadStatus(null);
+    
+    // Get the filename from the path
+    const filename = filepath.split(/[\\/]/).pop() || 'document';
+    
+    // Use Tauri's download command
+    const result = await invoke<string>('download_student_document', { 
+      sourcePath: filepath 
+    });
+    
+    setDownloadStatus({
+      success: true,
+      message: `File downloaded to: ${result}`
+    });
+    
+    setTimeout(() => {
+      setDownloadStatus(null);
+    }, 3000);
+  } catch (err) {
+    console.error('Download failed:', err);
+    setDownloadStatus({
+      success: false,
+      message: 'Failed to download document'
+    });
+  }
+};
+
+  const renderDocumentLink = (label: string, documentKey: keyof StudentDocuments) => {
+  const filepath = documentUrls[documentKey as string];
+  const filename = selectedDocumentsInfo?.[documentKey];
+  
+  if (!filepath || !filename) {
+    return <Typography variant="body2">-</Typography>;
+  }
+
+    // Ensure filename is treated as string
+    const filenameStr = filename.toString();
+    const displayName = filenameStr.split(/[\\/]/).pop() || '';
+
+     return (
+    <Stack direction="row" spacing={1}>
+      <Button 
+        variant="outlined" 
+        size="small"
+        onClick={() => {
+          setPreviewUrl(filepath);
+          setPreviewOpen(true);
+        }}
+        sx={{ textTransform: 'none' }}
+      >
+        View
+      </Button>
+      <Button 
+        variant="contained" 
+        size="small"
+        onClick={() => handleDownload(filepath)}
+        sx={{ textTransform: 'none' }}
+      >
+        Download
+      </Button>
+    </Stack>
+  );
+};
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [classes, basicData, contactData, healthData, documentsData] = await Promise.all([
+          invoke<{id: string, class_name: string}[]>('get_all_classes'),
+          invoke<[number, StudentBasic][]>('get_all_student1'),
+          invoke<[number, StudentContact][]>('get_all_student2'),
+          invoke<[number, StudentHealth][]>('get_all_student3'),
+          invoke<[number, StudentDocuments][]>('get_all_student4')
+        ]);
+
+        const newClassMap = classes.reduce((acc, cls) => {
+          acc[cls.id] = cls.class_name;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const transformedBasic = basicData.map(([id, data]) => ({ ...data, id }));
+        const transformedContact = contactData.map(([id, data]) => ({ ...data, id }));
+        const transformedHealth = healthData.map(([id, data]) => ({ ...data, id }));
+        const transformedDocuments = documentsData.map(([id, data]) => ({ ...data, id }));
+
+        if (transformedDocuments.length > 0) {
+          const urls = await getDocumentPaths(transformedDocuments[0]);
+          setDocumentUrls(urls);
+        }
+
+        setClassMap(newClassMap);
+        setBasicInfo(transformedBasic);
+        setContactInfo(transformedContact);
+        setHealthInfo(transformedHealth);
+        setDocumentsInfo(transformedDocuments);
+        setSelectedStudentId(transformedBasic[0]?.id || null);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+        setError('Failed to load student data');
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchClasses();
+    fetchData();
   }, []);
+
+  useEffect(() => {
+    const updateDocumentUrls = async () => {
+      if (selectedStudentId) {
+        const documents = documentsInfo.find(d => d.id === selectedStudentId);
+        if (documents) {
+          const urls = await getDocumentPaths(documents);
+          setDocumentUrls(urls);
+        }
+      }
+    };
+
+    updateDocumentUrls();
+  }, [selectedStudentId, documentsInfo]);
 
   useEffect(() => {
     if (infoRef.current) {
       setCardHeight(infoRef.current.clientHeight + 240);
     }
-  }, [selectedStudent, infoTab]);
+  }, [selectedStudentId, infoTab]);
+
+  if (loading) {
+    return (
+      <DashboardContent>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+          <Typography>Loading student data...</Typography>
+        </Box>
+      </DashboardContent>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardContent>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+          <Alert severity="error">{error}</Alert>
+        </Box>
+      </DashboardContent>
+    );
+  }
+
+  const selectedBasicInfo = basicInfo.find(s => s.id === selectedStudentId);
+  const selectedContactInfo = contactInfo.find(s => s.id === selectedStudentId);
+  const selectedHealthInfo = healthInfo.find(s => s.id === selectedStudentId);
+  const selectedDocumentsInfo = documentsInfo.find(s => s.id === selectedStudentId);
+
+  function InfoRow({ label, value }: { label: string; value?: string | null }) {
+    return (
+      <Stack direction="row" justifyContent="space-between">
+        <Typography variant="body2" fontWeight={500}>{label}</Typography>
+        <Typography variant="body2">{value || '-'}</Typography>
+      </Stack>
+    );
+  }
+
+  function InfoRowWithLink({ 
+    label, 
+    documentKey, 
+    renderLink 
+  }: { 
+    label: string; 
+    documentKey: keyof StudentDocuments; 
+    renderLink: (label: string, documentKey: keyof StudentDocuments) => React.ReactNode 
+  }) {
+    return (
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="body2" fontWeight={500}>{label}</Typography>
+        {renderLink(label, documentKey)}
+      </Stack>
+    );
+  }
 
   return (
     <DashboardContent>
       <Stack spacing={2}>
+        {downloadStatus && (
+          <Alert severity={downloadStatus.success ? "success" : "error"}>
+            {downloadStatus.message}
+          </Alert>
+        )}
+
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="h5" fontWeight={700}>Student Management</Typography>
           <Stack direction="row" spacing={2}>
@@ -138,176 +366,321 @@ export function StudentView() {
             </Button>
             <Button
               variant="outlined"
-              disabled={!selectedStudent}
-              onClick={() => navigate(`/dashboard/student/add/${selectedStudent?.id}`)}
+              disabled={!selectedStudentId}
+              onClick={() => navigate(`/dashboard/student/add/${selectedStudentId}`)}
             >
               Edit
             </Button>
-            <Button variant="outlined" color="error" disabled={!selectedStudent} onClick={handleDelete}>
+            <Button variant="outlined" color="error" disabled={!selectedStudentId} onClick={handleDelete}>
               Delete
             </Button>
           </Stack>
         </Stack>
 
         <Stack direction="row" spacing={2} alignItems="flex-start">
-          <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: cardHeight }}>
+          <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: cardHeight || 600 }}>
             <TextField fullWidth size="small" label="Search Students" sx={{ mb: 2 }} />
-            <Box sx={{ overflowY: 'auto', maxHeight: cardHeight ? cardHeight - 80 : 420 }}>
-              <List>
-                {students.map((s) => (
-                  <ListItem disablePadding key={s.id}>
-                    <ListItemButton selected={selectedStudent?.id === s.id} onClick={() => setSelectedStudent(s)}>
-                      <ListItemAvatar>
-                        <Avatar src="/assets/avatars/avatar_1.jpg" />
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={<Typography fontWeight={600}>{s.step1.full_name}</Typography>}
-                        secondary={`Class: ${getClassName(s.step3?.class_id)}`}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
+            <Box sx={{ overflowY: 'auto', maxHeight: cardHeight ? cardHeight - 80 : 520 }}>
+              {basicInfo.length > 0 ? (
+                <List>
+                  {basicInfo.map((s) => (
+                    <ListItem disablePadding key={s.id}>
+                      <ListItemButton 
+                        selected={selectedStudentId === s.id}
+                        onClick={() => setSelectedStudentId(s.id)}
+                      >
+                        <ListItemAvatar>
+                          <Avatar src={s.profile_image || "/assets/avatars/avatar_1.jpg"} />
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={<Typography fontWeight={600}>{s.full_name}</Typography>}
+                          secondary={`Class: ${classMap[s.class_id] || `Class ${s.class_id}`}`}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Box display="flex" justifyContent="center" alignItems="center" height="100%" minHeight={300}>
+                  <Typography variant="body1" color="text.secondary">
+                    No students found
+                  </Typography>
+                </Box>
+              )}
             </Box>
           </Card>
 
-          {selectedStudent && (
-            <Card sx={{ width: '70%', overflow: 'hidden', borderRadius: 3, height: cardHeight || 420 }}>
-              <Box sx={{ position: 'relative' }}>
-                <Box
+          <Card sx={{ width: '70%', overflow: 'hidden', borderRadius: 3, height: cardHeight || 600 }}>
+            <Box sx={{ position: 'relative' }}>
+              <Box
+                sx={{
+                  height: 160,
+                  backgroundImage: 'url("https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=1200&q=80")',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  backdropFilter: 'blur(4px)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: 1,
+                  p: 0.5,
+                }}
+              >
+                <ToggleButtonGroup
+                  value={infoTab}
+                  exclusive
+                  onChange={(e, v) => v && setInfoTab(v)}
+                  size="medium"
                   sx={{
-                    height: 160,
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=1200&q=80")',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }}
-                />
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 12,
-                    right: 12,
-                    backdropFilter: 'blur(4px)',
-                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                    borderRadius: 1,
-                    p: 0.5,
+                    '& .MuiToggleButton-root': {
+                      color: '#fff',
+                      borderColor: 'rgba(255,255,255,0.4)',
+                      fontWeight: 600,
+                    },
+                    '& .Mui-selected': {
+                      backgroundColor: 'rgba(255,255,255,0.25)',
+                      color: '#fff',
+                      borderColor: 'rgba(255,255,255,0.8)',
+                    },
+                    '& .MuiToggleButton-root:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                    },
                   }}
                 >
-                  <ToggleButtonGroup
-                    value={infoTab}
-                    exclusive
-                    onChange={(e, v) => v && setInfoTab(v)}
-                    size="medium"
-                    sx={{
-                      '& .MuiToggleButton-root': {
-                        color: '#fff',
-                        borderColor: 'rgba(255,255,255,0.4)',
-                        fontWeight: 600,
-                      },
-                      '& .Mui-selected': {
-                        backgroundColor: 'rgba(255,255,255,0.25)',
-                        color: '#fff',
-                        borderColor: 'rgba(255,255,255,0.8)',
-                      },
-                      '& .MuiToggleButton-root:hover': {
-                        backgroundColor: 'rgba(255,255,255,0.1)',
-                      },
-                    }}
-                  >
-                    <ToggleButton value="personal">Personal</ToggleButton>
-                    <ToggleButton value="guardian">Guardian</ToggleButton>
-                    <ToggleButton value="background">Background</ToggleButton>
-                  </ToggleButtonGroup>
-                </Box>
+                  <ToggleButton value="general">General</ToggleButton>
+                  <ToggleButton value="contact">Contact</ToggleButton>
+                  <ToggleButton value="health">Health</ToggleButton>
+                  <ToggleButton value="documents">Documents</ToggleButton>
+                </ToggleButtonGroup>
               </Box>
+            </Box>
 
-              <Box sx={{ px: 3, position: 'relative', minHeight: 90 }}>
-                <Avatar
-                  src="/assets/avatars/avatar_1.jpg"
-                  sx={{
-                    width: 90,
-                    height: 90,
-                    border: '4px solid white',
-                    position: 'absolute',
-                    top: -45,
-                    left: 24,
-                  }}
-                />
-                <Box sx={{ pl: 12 }}>
-                  {students.length === 0 ? (
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      No student found
-                    </Typography>
-                  ) : selectedStudent ? (
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      Name: {selectedStudent.step1.full_name || '-'}, Class: {getClassName(selectedStudent.step3?.class_id)}
-                    </Typography>
-                  ) : (
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      No student selected
-                    </Typography>
+            <Box sx={{ px: 3, position: 'relative', minHeight: 90 }}>
+              <Avatar
+                src={selectedBasicInfo?.profile_image || "/assets/avatars/avatar_1.jpg"}
+                sx={{
+                  width: 90,
+                  height: 90,
+                  border: '4px solid white',
+                  position: 'absolute',
+                  top: -45,
+                  left: 24,
+                }}
+              />
+              <Box sx={{ pl: 12 }}>
+                <Typography variant="subtitle1" fontWeight={600}>
+                  {selectedBasicInfo ? 
+                    `${selectedBasicInfo.full_name}, Class: ${classMap[selectedBasicInfo.class_id] || `Class ${selectedBasicInfo.class_id}`}, Section: ${selectedBasicInfo.section}` : 
+                    "No student selected"}
+                </Typography>
+                {selectedBasicInfo && (
+                  <Typography variant="body2">
+                    GR No: {selectedBasicInfo.gr_number} | Roll No: {selectedBasicInfo.roll_number}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+
+            <Box maxWidth={560} mx="auto" px={3} pb={3} ref={infoRef}>
+              {selectedBasicInfo ? (
+                <>
+                  {infoTab === 'general' && (
+                    <Stack spacing={1.25} pt={1}>
+                      <Typography fontWeight={600} mb={1} fontSize={16}>General Information</Typography>
+                      <InfoRow label="GR Number" value={selectedBasicInfo.gr_number} />
+                      <InfoRow label="Student ID" value={selectedBasicInfo.student_id} />
+                      <InfoRow label="Roll Number" value={selectedBasicInfo.roll_number} />
+                      <InfoRow label="Full Name" value={selectedBasicInfo.full_name} />
+                      <InfoRow label="Date of Birth" value={selectedBasicInfo.dob} />
+                      <InfoRow label="Gender" value={selectedBasicInfo.gender} />
+                      <InfoRow label="Mother's Name" value={selectedBasicInfo.mother_name} />
+                      <InfoRow label="Father's Name" value={selectedBasicInfo.father_name} />
+                      <InfoRow label="Nationality" value={selectedBasicInfo.nationality} />
+                      <InfoRow label="Class" value={classMap[selectedBasicInfo.class_id] || `Class ${selectedBasicInfo.class_id}`} />
+                      <InfoRow label="Section" value={selectedBasicInfo.section} />
+                      <InfoRow label="Academic Year" value={selectedBasicInfo.academic_year} />
+                    </Stack>
                   )}
-                </Box>
-              </Box>
 
-              <Box maxWidth={560} mx="auto" px={3} pb={3} ref={infoRef}>
-                {students.length === 0 ? (
-                  <Box sx={{ pt: 4 }}>
-                    <Typography variant="h6" fontWeight={600} color="text.secondary">
-                      No student records found.
-                    </Typography>
-                    <Typography variant="body2" mt={1}>
-                      Please add a new student to begin.
-                    </Typography>
-                  </Box>
-                ) : selectedStudent && infoTab === 'personal' ? (
-                  <Stack spacing={1.25} pt={1}>
-                    <Typography fontWeight={600} mb={1} fontSize={16}>Personal Info</Typography>
-                    <InfoRow label="Gender" value={selectedStudent.step1.gender} />
-                    <InfoRow label="Date of Birth" value={selectedStudent.step1.dob} />
-                    <InfoRow label="Aadhar" value={selectedStudent.step1.aadhaar_no} />
-                    <InfoRow label="Religion" value={selectedStudent.step1.religion} />
-                    <InfoRow label="Caste" value={selectedStudent.step1.caste} />
-                    <InfoRow label="Nationality" value={selectedStudent.step1.nationality} />
-                    <InfoRow label="Mobile" value={selectedStudent.step1.mobile_number} />
-                    <InfoRow label="Email" value={selectedStudent.step1.email} />
-                    <InfoRow label="Address" value={selectedStudent.step1.address} />
-                  </Stack>
-                ) : selectedStudent && infoTab === 'guardian' ? (
-                  <Stack spacing={1.25} pt={1}>
-                    <Typography fontWeight={600} mb={1} fontSize={16}>Guardian Info</Typography>
-                    <InfoRow label="Father's Name" value={selectedStudent.step2?.father_name} />
-                    <InfoRow label="Mother's Name" value={selectedStudent.step2?.mother_name} />
-                    <InfoRow label="Father's Occupation" value={selectedStudent.step2?.father_occupation} />
-                    <InfoRow label="Mother's Occupation" value={selectedStudent.step2?.mother_occupation} />
-                    <InfoRow label="Father's Education" value={selectedStudent.step2?.father_education} />
-                    <InfoRow label="Mother's Education" value={selectedStudent.step2?.mother_education} />
-                    <InfoRow label="Emergency Contact" value={selectedStudent.step2?.emergency_contact} />
-                  </Stack>
-                ) : selectedStudent && infoTab === 'background' ? (
-                  <Stack spacing={1.25} pt={1}>
-                    <Typography fontWeight={600} mb={1} fontSize={16}>Background Info</Typography>
-                    <InfoRow label="Previous School" value={selectedStudent.step3?.prev_school} />
-                    <InfoRow label="Last Class" value={selectedStudent.step3?.last_class} />
-                    <InfoRow label="Admission Date" value={selectedStudent.step3?.admission_date} />
-                    <InfoRow label="Class" value={getClassName(selectedStudent.step3?.class_id)} />
-                    <InfoRow label="Status" value={selectedStudent.step3?.status} />
-                  </Stack>
-                ) : null}
-              </Box>
-            </Card>
-          )}
+                  {infoTab === 'contact' && selectedContactInfo && (
+                    <Stack spacing={1.25} pt={1}>
+                      <Typography fontWeight={600} mb={1} fontSize={16}>Contact Information</Typography>
+                      <InfoRow label="Email" value={selectedContactInfo.email} />
+                      <InfoRow label="Mobile Number" value={selectedContactInfo.mobile_number} />
+                      <InfoRow label="Alternate Contact" value={selectedContactInfo.alternate_contact_number} />
+                      <InfoRow label="Address" value={selectedContactInfo.address} />
+                      <InfoRow label="City" value={selectedContactInfo.city} />
+                      <InfoRow label="State" value={selectedContactInfo.state} />
+                      <InfoRow label="Country" value={selectedContactInfo.country} />
+                      <InfoRow label="Postal Code" value={selectedContactInfo.postal_code} />
+                      <InfoRow label="Guardian Contact Info" value={selectedContactInfo.guardian_contact_info} />
+                    </Stack>
+                  )}
+
+                  {infoTab === 'health' && selectedHealthInfo && (
+                    <Stack spacing={1.25} pt={1}>
+                      <Typography fontWeight={600} mb={1} fontSize={16}>Health & Admission</Typography>
+                      <InfoRow label="Blood Group" value={selectedHealthInfo.blood_group} />
+                      <InfoRow label="Status" value={selectedHealthInfo.status} />
+                      <InfoRow label="Admission Date" value={selectedHealthInfo.admission_date} />
+                      <InfoRow label="Weight (kg)" value={selectedHealthInfo.weight_kg?.toString() || '-'} />
+                      <InfoRow label="Height (cm)" value={selectedHealthInfo.height_cm?.toString() || '-'} />
+                      <InfoRow label="HB Range" value={selectedHealthInfo.hb_range} />
+                      <InfoRow label="Medical Conditions" value={selectedHealthInfo.medical_conditions} />
+                      <InfoRow label="Emergency Contact Person" value={selectedHealthInfo.emergency_contact_person} />
+                      <InfoRow label="Emergency Contact" value={selectedHealthInfo.emergency_contact} />
+                      <InfoRow label="Vaccination Certificate" value={selectedHealthInfo.vaccination_certificate} />
+                    </Stack>
+                  )}
+
+                  {infoTab === 'documents' && selectedDocumentsInfo && (
+                    <Stack spacing={1.25} pt={1}>
+                      <Typography fontWeight={600} mb={1} fontSize={16}>Documents</Typography>
+                      <InfoRowWithLink 
+                        label="Birth Certificate" 
+                        documentKey="birth_certificate" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="Transfer Certificate" 
+                        documentKey="transfer_certificate" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="Previous Academic Records" 
+                        documentKey="previous_academic_records" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="Address Proof" 
+                        documentKey="address_proof" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="ID Proof" 
+                        documentKey="id_proof" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="Passport Photo" 
+                        documentKey="passport_photo" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="Medical Certificate" 
+                        documentKey="medical_certificate" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="Vaccination Certificate" 
+                        documentKey="vaccination_certificate" 
+                        renderLink={renderDocumentLink} 
+                      />
+                      <InfoRowWithLink 
+                        label="Other Documents" 
+                        documentKey="other_documents" 
+                        renderLink={renderDocumentLink} 
+                      />
+                    </Stack>
+                  )}
+                </>
+              ) : (
+                <Box display="flex" justifyContent="center" alignItems="center" height="100%" minHeight={300}>
+                  <Typography variant="body1" color="text.secondary">
+                    No student selected or found
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Card>
         </Stack>
       </Stack>
-    </DashboardContent>
-  );
-}
 
-function InfoRow({ label, value }: { label: string; value?: string }) {
-  return (
-    <Stack direction="row" justifyContent="space-between">
-      <Typography variant="body2" fontWeight={500}>{label}</Typography>
-      <Typography variant="body2">{value || '-'}</Typography>
-    </Stack>
+      {/* Document Preview Modal */}
+     {previewOpen && (
+  <Box
+    sx={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      zIndex: 1300,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+    }}
+    onClick={() => {
+      setPreviewOpen(false);
+      // Revoke the blob URL when done to free memory
+      if (previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    }}
+  >
+    <Box
+      sx={{
+        maxWidth: '90%',
+        maxHeight: '90%',
+        backgroundColor: 'white',
+        p: 2,
+        borderRadius: 1,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {previewType === 'pdf' ? (
+        <iframe 
+          src={previewUrl} 
+          width="800" 
+          height="600" 
+          style={{ border: 'none' }}
+          title="Document Preview"
+        />
+      ) : previewType === 'image' ? (
+        <img 
+          src={previewUrl} 
+          alt="Document Preview" 
+          style={{ maxWidth: '100%', maxHeight: '80vh' }}
+        />
+      ) : (
+        <Box sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Document Preview Not Available
+          </Typography>
+          <Typography>
+            This file type cannot be previewed. Please download the file to view it.
+          </Typography>
+          <Button 
+            variant="contained" 
+            onClick={() => handleDownload(previewUrl)}
+            sx={{ mt: 2 }}
+          >
+            Download File
+          </Button>
+        </Box>
+      )}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+        <Button 
+          variant="contained" 
+          onClick={() => {
+            setPreviewOpen(false);
+            if (previewUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(previewUrl);
+            }
+          }}
+        >
+          Close
+        </Button>
+      </Box>
+    </Box>
+  </Box>
+)}
+    </DashboardContent>
   );
 }

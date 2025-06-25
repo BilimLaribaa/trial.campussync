@@ -21,12 +21,12 @@ export const SignInPage = lazy(() => import('src/pages/sign-in'));
 export const Page404 = lazy(() => import('src/pages/page-not-found'));
 export const EnquiryPage = lazy(() => import('src/pages/enquiry'));
 export const EnquiryReviewPage = lazy(() => import('src/pages/enquiry-review'));
-// export const BlogPage = lazy(() => import('src/pages/blog'));
-// export const UserPage = lazy(() => import('src/pages/user'));
-// export const ProductsPage = lazy(() => import('src/pages/products'));
+export const BlogPage = lazy(() => import('src/pages/blog'));
+export const UserPage = lazy(() => import('src/pages/user'));
+export const ProductsPage = lazy(() => import('src/pages/products'));
 export const ClassPage = lazy(() => import('src/pages/class'));
-// export const StaffPage = lazy(() => import('src/pages/staff'));
-// export const AddStaffView = lazy(() => import('src/sections/staff/add-staff-container'));
+export const StaffPage = lazy(() => import('src/pages/staff'));
+export const AddStaffView = lazy(() => import('src/sections/staff/add-staff-container'));
 export const FullCalendarViewPage = lazy(() => import('src/pages/full-calendar-view'));
 
 // This is a small edit to trigger re-evaluation
@@ -62,26 +62,26 @@ export const routesSection: RouteObject[] = [
   {
     path: 'dashboard',
     element: (
-      <RequireAuth>
+      // <RequireAuth>
         <DashboardLayout>
           <Suspense fallback={renderFallback()}>
             <Outlet />
           </Suspense>
         </DashboardLayout>
-      </RequireAuth>
+      // </RequireAuth>
     ),
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'students', element: <StudentPage /> },
       { path: 'student/add', element: <AddStudentView /> },
       { path: 'student/add/:id', element: <AddStudentView /> },
-      // { path: 'user', element: <UserPage /> },
+      { path: 'user', element: <UserPage /> },
       { path: 'enquiry', element: <EnquiryPage /> },
       { path: 'enquiry/:id', element: <EnquiryReviewPage /> },
-      // { path: 'class', element: <ClassPage /> },
-      // { path: 'staff', element: <StaffPage /> },
-      // { path: 'staff/add', element: <AddStaffView /> },
-      // { path: 'blog', element: <BlogPage /> },
+      { path: 'class', element: <ClassPage /> },
+      { path: 'staff', element: <StaffPage /> },
+      { path: 'staff/add', element: <AddStaffView /> },
+      { path: 'blog', element: <BlogPage /> },
       { path: 'calendar', element: <FullCalendarViewPage /> },
     ],
   },

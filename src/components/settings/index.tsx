@@ -19,6 +19,22 @@ interface VersionInfo {
 export function Settings() {
     const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+    const [emailSettings, setEmailSettings] = useState({
+        email: localStorage.getItem('default_email') || '',
+        password: localStorage.getItem('default_email_password') || '',
+    });
+
+    const handleEmailSettings = () => {
+        const email = prompt("Enter default sender email:", emailSettings.email);
+        const password = prompt("Enter password for this email:", emailSettings.password);
+
+        if (email && password) {
+            localStorage.setItem('default_email', email);
+            localStorage.setItem('default_email_password', password);
+            setEmailSettings({ email, password });
+            alert('Default email settings saved.');
+        }
+    };
 
     useEffect(() => {
         const fetchVersion = async () => {
@@ -111,7 +127,7 @@ export function Settings() {
                         Settings
                     </Typography>
 
-                    {/* Add your settings options here */}
+                    {/* Settings Options */}
                     <Stack spacing={1.5}>
                         <Box
                             sx={{
@@ -126,6 +142,7 @@ export function Settings() {
                             <Typography variant="body2">General Settings</Typography>
                         </Box>
 
+                        {/* ✅ Only one Mail settings item with handler */}
                         <Box
                             sx={{
                                 cursor: 'pointer',
@@ -134,9 +151,10 @@ export function Settings() {
                                 alignItems: 'center',
                                 gap: 1,
                             }}
+                            onClick={handleEmailSettings}
                         >
-                            <Iconify icon="solar:shield-keyhole-bold-duotone" width={20} />
-                            <Typography variant="body2">Security</Typography>
+                            <Iconify icon="solar:mail-unread-bold" width={25} />
+                            <Typography variant="body2">Mail</Typography>
                         </Box>
                     </Stack>
 
@@ -178,4 +196,4 @@ export function Settings() {
             </Popover>
         </>
     );
-} 
+}

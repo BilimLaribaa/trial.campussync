@@ -9,6 +9,7 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
 import Table from '@mui/material/Table';
+import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import TableRow from '@mui/material/TableRow';
@@ -21,8 +22,11 @@ import TableHead from '@mui/material/TableHead';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import DialogTitle from '@mui/material/DialogTitle';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import TableContainer from '@mui/material/TableContainer';
 import TableSortLabel from '@mui/material/TableSortLabel';
 import TablePagination from '@mui/material/TablePagination';
@@ -33,6 +37,7 @@ import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 
 import { EnquiryForm } from './enquiry-form';
+
 
 type Enquiry = {
   id?: number;
@@ -51,8 +56,8 @@ type Column = {
 };
 
 const columns: Column[] = [
-  { id: 'student_name', label: 'Student Name' },
   { id: 'parent_name', label: 'Parent Name' },
+  { id: 'student_name', label: 'Student Name' },
   { id: 'phone', label: 'Phone' },
   { id: 'email', label: 'Email' },
   { id: 'source', label: 'Source' },
@@ -93,14 +98,14 @@ export function EnquiryView() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [orderBy, setOrderBy] = useState<keyof Enquiry>('student_name');
+  const [orderBy, setOrderBy] = useState<keyof Enquiry>('parent_name');
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [open, setOpen] = useState(false);
   const [editingEnquiry, setEditingEnquiry] = useState<Enquiry | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Set<keyof Enquiry>>(
-    new Set(['student_name', 'parent_name', 'phone', 'status'])
+    new Set([ 'parent_name', 'phone', 'email','status'])
   );
   const [columnMenuAnchor, setColumnMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
@@ -213,6 +218,25 @@ export function EnquiryView() {
     }
     handleActionMenuClose();
   };
+
+  const [mailOpen, setMailOpen] = useState(false);
+const [mailData, setMailData] = useState<{ to: string; subject: string; body: string }>({
+  to: '',
+  subject: '',
+  body: '',
+});
+
+const handleMailClick = () => {
+  if (selectedEnquiry?.email) {
+    setMailData({
+      to: selectedEnquiry.email,
+      subject: '',
+      body: '',
+    });
+    setMailOpen(true);
+  }
+  handleActionMenuClose();
+};
 
   return (
     <DashboardContent>
@@ -358,6 +382,12 @@ export function EnquiryView() {
           </ListItemIcon>
           <ListItemText>Delete</ListItemText>
         </MenuItem>
+        <MenuItem onClick={handleMailClick}>
+  <ListItemIcon>
+    <Iconify icon="solar:mail-unread-bold" width={25} />
+  </ListItemIcon>
+  <ListItemText>Mail</ListItemText>
+</MenuItem>
       </Menu>
 
       <Snackbar
@@ -370,6 +400,60 @@ export function EnquiryView() {
           {successMessage}
         </Alert>
       </Snackbar>
+
+      <Dialog open={mailOpen} onClose={() => setMailOpen(false)} fullWidth maxWidth="sm">
+  <DialogTitle>Send Mail</DialogTitle>
+  <DialogContent>
+    <Stack spacing={2} mt={1}>
+      <TextField
+        label="To"
+        fullWidth
+        value={mailData.to}
+        disabled
+      />
+      <TextField
+        label="Subject"
+        fullWidth
+        value={mailData.subject}
+        onChange={(e) => setMailData({ ...mailData, subject: e.target.value })}
+      />
+      <TextField
+        label="Message"
+        fullWidth
+        multiline
+        minRows={4}
+        value={mailData.body}
+        onChange={(e) => setMailData({ ...mailData, body: e.target.value })}
+      />
+    </Stack>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setMailOpen(false)}>Cancel</Button>
+    <Button
+  variant="contained"
+  onClick={async () => {
+    try {
+      await invoke("send_mail", {
+        payload: {
+          to: mailData.to,
+          subject: mailData.subject,
+          body: mailData.body,
+        },
+      });
+      alert("Email sent successfully!");
+    } catch (error) {
+      console.error("Failed to send mail:", error);
+      alert("Failed to send email.");
+    } finally {
+      setMailOpen(false);
+    }
+  }}
+>
+  Send
+</Button>
+  </DialogActions>
+</Dialog>
+
     </DashboardContent>
   );
 }

@@ -425,15 +425,27 @@ export function EnquiryReview() {
     <DashboardContent>
       <Stack spacing={3}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <IconButton
-            onClick={() => navigate(-1)}
-            sx={{ mr: 2 }}
-            color="primary"
-          >
-            <Iconify icon="mingcute:close-line" width={24} />
-          </IconButton>
-          <Typography variant="h4">Enquiry Review</Typography>
-        </Box>
+  <IconButton
+    onClick={() => navigate(-1)}
+    sx={{ mr: 2 }}
+    color="primary"
+  >
+    <Iconify icon="mingcute:close-line" width={24} />
+  </IconButton>
+
+  <Typography variant="h4" sx={{ flexGrow: 1 }}>
+    Enquiry Review
+  </Typography>
+
+  <Button
+    variant="outlined"
+    color="inherit"
+    onClick={() => {}}
+    startIcon={<Iconify icon="solar:mail-unread-bold" width={30} sx={{ color: 'error.main' }} />}
+  >
+    Mail
+  </Button>
+</Box>
 
         <Box sx={{ display: 'flex', gap: 3 }}>
           <Box sx={{ flex: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>

@@ -1,8 +1,8 @@
-use crate::DbState;
 use crate::image;
+use crate::DbState;
 use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use tauri::{State, AppHandle};
+use tauri::{AppHandle, State};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct School {
@@ -126,7 +126,10 @@ pub async fn upsert_school_details(
 
     match existing_school {
         Some(existing) => {
-            if let (Some(old_image), Some(new_image)) = (existing.school_image.as_ref(), school_details.school_image.as_ref()) {
+            if let (Some(old_image), Some(new_image)) = (
+                existing.school_image.as_ref(),
+                school_details.school_image.as_ref(),
+            ) {
                 if old_image != new_image {
                     if let Some(old_filename) = old_image.split('/').last() {
                         let _ = image::delete_image(app_handle.clone(), old_filename.to_string());
@@ -167,7 +170,8 @@ pub async fn upsert_school_details(
                     &school_details.school_image,
                     existing.id.unwrap_or(1),
                 ),
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
             Ok(existing.id.unwrap_or(1))
         }
         None => {

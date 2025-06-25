@@ -47,10 +47,10 @@
   dependencies:
     "@babel/types" "^7.27.0"
 
-"@babel/runtime@^7.12.5", "@babel/runtime@^7.18.3", "@babel/runtime@^7.26.10", "@babel/runtime@^7.27.1", "@babel/runtime@^7.5.5", "@babel/runtime@^7.8.7":
-  version "7.27.4"
-  resolved "https://registry.npmjs.org/@babel/runtime/-/runtime-7.27.4.tgz"
-  integrity sha512-t3yaEOuGu9NlIZ+hIeGbBjFtZT7j2cb2tg0fuaJKeGotchRjjLfrBA9Kwf8quhpP1EUuxModQg04q/mBwyg8uA==
+"@babel/runtime@^7.12.5", "@babel/runtime@^7.18.3", "@babel/runtime@^7.26.10", "@babel/runtime@^7.27.1", "@babel/runtime@^7.27.6", "@babel/runtime@^7.5.5", "@babel/runtime@^7.8.7":
+  version "7.27.6"
+  resolved "https://registry.npmjs.org/@babel/runtime/-/runtime-7.27.6.tgz"
+  integrity sha512-vbavdySgbTTrmFE+EsiqUTzlOr5bzlnJtUv9PynGCAKvfQqjIXbvFdumPM/GxMDfyuGMJaJAU6TO4zc1Jf1i8Q==
 
 "@babel/template@^7.27.0":
   version "7.27.0"
@@ -371,15 +371,15 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@mui/core-downloads-tracker@^7.1.1":
-  version "7.1.1"
-  resolved "https://registry.npmjs.org/@mui/core-downloads-tracker/-/core-downloads-tracker-7.1.1.tgz"
-  integrity sha512-yBckQs4aQ8mqukLnPC6ivIRv6guhaXi8snVl00VtyojBbm+l6VbVhyTSZ68Abcx7Ah8B+GZhrB7BOli+e+9LkQ==
+"@mui/core-downloads-tracker@^7.1.2":
+  version "7.1.2"
+  resolved "https://registry.npmjs.org/@mui/core-downloads-tracker/-/core-downloads-tracker-7.1.2.tgz"
+  integrity sha512-0gLO1PvbJwSYe5ji021tGj6HFqrtEPMGKK4L1zWwRbhzrWWUumUJvMvJUsIgWQIYQsgOnhq9k2Fc1BxLGHDsAg==
 
 "@mui/icons-material@^7.1.1":
-  version "7.1.1"
-  resolved "https://registry.npmjs.org/@mui/icons-material/-/icons-material-7.1.1.tgz"
-  integrity sha512-X37+Yc8QpEnl0sYmz+WcLFy2dWgNRzbswDzLPXG7QU1XDVlP5TPp1HXjdmCupOWLL/I9m1fyhcyZl8/HPpp/Cg==
+  version "7.1.2"
+  resolved "https://registry.npmjs.org/@mui/icons-material/-/icons-material-7.1.2.tgz"
+  integrity sha512-slqJByDub7Y1UcokrM17BoMBMvn8n7daXFXVoTv0MEH5k3sHjmsH8ql/Mt3s9vQ20cORDr83UZ448TEGcbrXtw==
   dependencies:
     "@babel/runtime" "^7.27.1"
 
@@ -395,13 +395,13 @@
     clsx "^2.1.1"
     prop-types "^15.8.1"
 
-"@mui/material@^5.15.14 || ^6.0.0 || ^7.0.0", "@mui/material@^7.0.1", "@mui/material@^7.1.1":
-  version "7.1.1"
-  resolved "https://registry.npmjs.org/@mui/material/-/material-7.1.1.tgz"
-  integrity sha512-mTpdmdZCaHCGOH3SrYM41+XKvNL0iQfM9KlYgpSjgadXx/fEKhhvOktxm8++Xw6FFeOHoOiV+lzOI8X1rsv71A==
+"@mui/material@^5.15.14 || ^6.0.0 || ^7.0.0", "@mui/material@^7.0.1", "@mui/material@^7.1.1", "@mui/material@^7.1.2":
+  version "7.1.2"
+  resolved "https://registry.npmjs.org/@mui/material/-/material-7.1.2.tgz"
+  integrity sha512-Z5PYKkA6Kd8vS04zKxJNpwuvt6IoMwqpbidV7RCrRQQKwczIwcNcS8L6GnN4pzFYfEs+N9v6co27DmG07rcnoA==
   dependencies:
     "@babel/runtime" "^7.27.1"
-    "@mui/core-downloads-tracker" "^7.1.1"
+    "@mui/core-downloads-tracker" "^7.1.2"
     "@mui/system" "^7.1.1"
     "@mui/types" "^7.4.3"
     "@mui/utils" "^7.1.1"
@@ -455,7 +455,7 @@
   dependencies:
     "@babel/runtime" "^7.27.1"
 
-"@mui/utils@^7.0.1", "@mui/utils@^7.0.2", "@mui/utils@^7.1.1":
+"@mui/utils@^7.0.1", "@mui/utils@^7.1.1":
   version "7.1.1"
   resolved "https://registry.npmjs.org/@mui/utils/-/utils-7.1.1.tgz"
   integrity sha512-BkOt2q7MBYl7pweY2JWwfrlahhp+uGLR8S+EhiyRaofeRYUWL2YKbSGQvN4hgSN1i8poN0PaUiii1kEMrchvzg==
@@ -468,25 +468,26 @@
     react-is "^19.1.0"
 
 "@mui/x-date-pickers@^8.5.0":
-  version "8.5.0"
-  resolved "https://registry.npmjs.org/@mui/x-date-pickers/-/x-date-pickers-8.5.0.tgz"
-  integrity sha512-pnivJhAopuu6C4uWbEEg7b8kDdPc7Ad0ANrlDzx4qZGUj9vFcc6n+hT7/kOFnn9uceszQmb07e3Ud+g/d8Z4vg==
+  version "8.5.3"
+  resolved "https://registry.npmjs.org/@mui/x-date-pickers/-/x-date-pickers-8.5.3.tgz"
+  integrity sha512-rToJOgIfVN/mG8QPX5RSPcP7QdnNN4yk+37fBztVUnmR7mhiWdUNSHlazGpnRGRqDdr4lXRkJbTjtJLviWkhKg==
   dependencies:
-    "@babel/runtime" "^7.27.1"
-    "@mui/utils" "^7.0.2"
-    "@mui/x-internals" "8.5.0"
+    "@babel/runtime" "^7.27.6"
+    "@mui/utils" "^7.1.1"
+    "@mui/x-internals" "8.5.3"
     "@types/react-transition-group" "^4.4.12"
     clsx "^2.1.1"
     prop-types "^15.8.1"
     react-transition-group "^4.4.5"
 
-"@mui/x-internals@8.5.0":
-  version "8.5.0"
-  resolved "https://registry.npmjs.org/@mui/x-internals/-/x-internals-8.5.0.tgz"
-  integrity sha512-Ef4KJij1pBGk6/xILyVZHf76tcuRpJIX30k4Ghklsd5QJujZ9ENCGAjvd7aWRAFAs5p3ffn0H8UDESoIcroj1Q==
+"@mui/x-internals@8.5.3":
+  version "8.5.3"
+  resolved "https://registry.npmjs.org/@mui/x-internals/-/x-internals-8.5.3.tgz"
+  integrity sha512-ImCg4E3DT3XoDIZO0pNCbB7iw14N+YCFY3J1V28POwCD7P2f3HSIz4jwzM006oYxI6bqeE6LMfpdPRDW6s6dQw==
   dependencies:
-    "@babel/runtime" "^7.27.1"
-    "@mui/utils" "^7.0.2"
+    "@babel/runtime" "^7.27.6"
+    "@mui/utils" "^7.1.1"
+    reselect "^5.1.1"
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
@@ -587,7 +588,7 @@
   dependencies:
     "@swc/counter" "^0.1.3"
 
-"@tauri-apps/api@^2.5.0":
+"@tauri-apps/api@^2.0.0", "@tauri-apps/api@^2.5.0":
   version "2.5.0"
   resolved "https://registry.npmjs.org/@tauri-apps/api/-/api-2.5.0.tgz"
   integrity sha512-Ldux4ip+HGAcPUmuLT8EIkk6yafl5vK0P0c0byzAKzxJh7vxelVtdPONjfgTm96PbN24yjZNESY8CKo8qniluA==
@@ -613,6 +614,13 @@
     "@tauri-apps/cli-win32-arm64-msvc" "2.5.0"
     "@tauri-apps/cli-win32-ia32-msvc" "2.5.0"
     "@tauri-apps/cli-win32-x64-msvc" "2.5.0"
+
+"@tauri-apps/plugin-opener@^2.3.0":
+  version "2.3.0"
+  resolved "https://registry.npmjs.org/@tauri-apps/plugin-opener/-/plugin-opener-2.3.0.tgz"
+  integrity sha512-yAbauwp8BCHIhhA48NN8rEf6OtfZBPCgTOCa10gmtoVCpmic5Bq+1Ba7C+NZOjogedkSiV7hAotjYnnbUVmYrw==
+  dependencies:
+    "@tauri-apps/api" "^2.0.0"
 
 "@types/better-sqlite3@^7.6.13":
   version "7.6.13"
@@ -2467,6 +2475,11 @@ regexp.prototype.flags@^1.5.3:
     get-proto "^1.0.1"
     gopd "^1.2.0"
     set-function-name "^2.0.2"
+
+reselect@^5.1.1:
+  version "5.1.1"
+  resolved "https://registry.npmjs.org/reselect/-/reselect-5.1.1.tgz"
+  integrity sha512-K/BG6eIky/SBpzfHZv/dd+9JBFiS4SWV7FIujVyJRux6e45+73RaUHXLmIR1f7WOMaQ0U1km6qwklRQxpJJY0w==
 
 resolve-from@^4.0.0:
   version "4.0.0"

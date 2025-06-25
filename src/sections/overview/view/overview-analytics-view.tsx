@@ -32,16 +32,6 @@ type ClassData = {
   growthPercent: number;
 };
 
-// Add School interface
-// interface School {
-//   id?: number;
-//   school_name: string;
-//   school_email: string;
-//   school_address: string;
-//   school_number: string;
-//   school_category: string;
-//   created_at?: string;
-// }
 
 function ClassesWidget() {
   const [loading, setLoading] = useState(true);

@@ -186,17 +186,21 @@ export function SchoolBanner({
   school,
   ...other
 }: Omit<SchoolBannerProps, 'title' | 'sub_title'> & { logo?: string; school: School | null }) {
-
-  
   const theme = useTheme();
-  const [imageUrl, setImageUrl] = useState('https://placehold.co/100x100');
+  const [imageUrl, setImageUrl] = useState('/assets/LOGO_SCHOOL.jpg'); // default fallback image
 
- useEffect(() => {
-  if (school?.school_image) {
-    const imagePath = `${Config.backend}/public/schools/${school.school_image}`;
-    setImageUrl(imagePath);
-  }
-}, [school]);
+  useEffect(() => {
+    if (school?.school_image) {
+      const imagePath = `${Config.backend}/public/schools/${school.school_image}`;
+      setImageUrl(imagePath);
+    } else {
+      setImageUrl('/assets/LOGO_SCHOOL.jpg');
+    }
+  }, [school]);
+
+  const handleImageError = () => {
+    setImageUrl('/assets/LOGO_SCHOOL.jpg');
+  };
 
   if (!school) return null;
 
@@ -228,6 +232,7 @@ export function SchoolBanner({
           component="img"
           src={imageUrl}
           alt={school.school_name}
+          onError={handleImageError}
           sx={{
             width: 128,
             height: 128,
@@ -237,7 +242,7 @@ export function SchoolBanner({
         <Box sx={{ flexGrow: 1, minWidth: 112 }}>
           <Box sx={{ typography: 'h1' }}>{school.school_name}</Box>
           <Box sx={{ typography: 'h4' }}>
-            {school.school_medium}  {school.school_board} , {school.address}
+            {school.school_medium} {school.school_board}, {school.address}
           </Box>
         </Box>
       </Box>
@@ -258,4 +263,3 @@ export function SchoolBanner({
     </Card>
   );
 }
-

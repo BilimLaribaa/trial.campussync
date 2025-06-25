@@ -3,6 +3,8 @@ use crate::DbState;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
+use std::path::Path;
+use std::fs;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Class {
@@ -33,6 +35,8 @@ pub fn init_class_table(conn: &Connection) -> rusqlite::Result<()> {
 #[tauri::command]
 pub async fn create_class(state: State<'_, DbState>, class: Class) -> Result<i64, String> {
     let conn = state.0.lock().unwrap();
+    
+    // First create the class in database
     conn.execute(
         "INSERT INTO classes (class_name, academic_year, status)
          VALUES (?1, ?2, ?3)",
@@ -43,8 +47,24 @@ pub async fn create_class(state: State<'_, DbState>, class: Class) -> Result<i64
         ),
     )
     .map_err(|e| e.to_string())?;
-
-    Ok(conn.last_insert_rowid())
+    
+    let class_id = conn.last_insert_rowid();
+    
+    // Now handle folder creation in the specific path
+    let folder_path = Path::new("C:\\Users\\LENOVO\\AppData\\Roaming\\com.campussync.com\\Student_Documents")
+        .join(&class.class_name);
+    
+    // Only create folder if it doesn't exist
+    if !folder_path.exists() {
+        if let Err(e) = fs::create_dir_all(&folder_path) {
+            // If folder creation fails, rollback the database insertion
+            conn.execute("DELETE FROM classes WHERE id = ?1", [class_id])
+                .ok(); // We ignore any error here since we're already handling one
+            return Err(format!("Failed to create class folder: {}", e));
+        }
+    }
+    
+    Ok(class_id)
 }
 
 #[tauri::command]
@@ -123,8 +143,15 @@ pub async fn update_class(state: State<'_, DbState>, id: i64, class: Class) -> R
 #[tauri::command]
 pub async fn delete_class(state: State<'_, DbState>, id: i64) -> Result<(), String> {
     let conn = state.0.lock().unwrap();
+    
+    // First get the class name before deleting (kept for potential future use)
+    let _class_name: String = conn
+        .query_row("SELECT class_name FROM classes WHERE id = ?1", [id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    
+    // Delete from database
     conn.execute("DELETE FROM classes WHERE id = ?1", [id])
         .map_err(|e| e.to_string())?;
-
+    
     Ok(())
 }

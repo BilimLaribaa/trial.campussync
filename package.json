@@ -47,6 +47,7 @@
     "@mui/types": "^7.4.3",
     "@mui/x-date-pickers": "^8.5.0",
     "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-opener": "^2.3.0",
     "apexcharts": "^4.5.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",

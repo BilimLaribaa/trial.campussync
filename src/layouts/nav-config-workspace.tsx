@@ -6,7 +6,7 @@ export const _workspaces: WorkspacesPopoverProps['data'] = [
   {
     id: 'team-1',
     name: 'Shaheen School',
-    plan: 'Free Trial',
+    plan: 'Free',
     logo: '/assets/icons/workspaces/logo-1.webp',
   },
   // {

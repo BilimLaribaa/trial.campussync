@@ -24,10 +24,12 @@ export default defineConfig({
     }),
   ],
   resolve: {
-    alias: {
-      'src': path.resolve(__dirname, './src'),
-      '@': path.resolve(__dirname, './src')
-    }
+    alias: [
+      {
+        find: /^src(.+)/,
+        replacement: path.resolve(process.cwd(), 'src/$1'),
+      },
+    ],
   },
   server: {
     port: PORT,
