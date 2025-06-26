@@ -2,10 +2,27 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
-    "core:default"
-  ]
+  "core:default",
+  "log:default",
+  {
+    "identifier": "opener:allow-open-url",
+    "allow": [
+      {
+        "url": "https://campussync.in/Registration",
+        "url":  "https://support.google.com/accounts/answer/185833?hl=en"
+      }
+    ]
+  },
+  {
+    "identifier": "opener:allow-open-path",
+    "allow": [
+      {
+        "path": "https://campussync.in/Registration",
+        "path": "https://support.google.com/accounts/answer/185833?hl=en"
+      }
+    ]
+  }
+]
 }
