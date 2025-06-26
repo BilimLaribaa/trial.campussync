@@ -1,75 +1,24 @@
 use crate::DbState;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use tauri::State;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager, State};
 use std::fs;
-use tauri::Manager;
-
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Student {
-    pub id: Option<i64>,
-    // General Information
-    pub gr_number: String,
-    pub student_id: String,
-    pub roll_number: String,
-    pub full_name: String,
-    pub dob: String,
-    pub gender: String,
-    pub mother_name: String,
-    pub father_name: String,
-    pub nationality: String,
-    pub profile_image: String,
-    pub class_id: String,
-    pub section: String,
-    pub academic_year: String,
-
-    // Contact Information
-    pub email: String,
-    pub mobile_number: String,
-    pub alternate_contact_number: String,
-    pub address: String,
-    pub city: String,
-    pub state: String,
-    pub country: String,
-    pub postal_code: String,
-    pub guardian_contact_info: String,
-
-    // Health & Admission Details
-    pub blood_group: String,
-    pub status: String,
-    pub admission_date: String,
-    pub weight_kg: f64,
-    pub height_cm: f64,
-    pub hb_range: String,
-    pub medical_conditions: String,
-    pub emergency_contact_person: String,
-    pub emergency_contact: String,
-
-    // Documents
-    pub birth_certificate: String,
-    pub transfer_certificate: String,
-    pub previous_academic_records: String,
-    pub address_proof: String,
-    pub id_proof: String,
-    pub passport_photo: String,
-    pub medical_certificate: String,
-    pub vaccination_certificate: String,
-    pub other_documents: String,
-}
+use std::path::Path;
+use base64::{engine::general_purpose, Engine as _};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StudentStep1 {
     pub id: Option<i64>,
     pub gr_number: Option<String>,
-    pub student_id: Option<String>,
     pub roll_number: Option<String>,
     pub full_name: String,
     pub dob: String,
     pub gender: String,
-    pub mother_name: String,  // Changed from Option<String> to String
-    pub father_name: String,  // Changed from Option<String> to String
+    pub mother_name: String,
+    pub father_name: String,
+    pub father_occupation: Option<String>,
+    pub mother_occupation: Option<String>,
+    pub annual_income: Option<f64>,
     pub nationality: Option<String>,
     pub profile_image: Option<String>,
     pub class_id: String,
@@ -97,25 +46,37 @@ pub struct StudentStep3 {
     pub blood_group: Option<String>,
     pub status: Option<String>,
     pub admission_date: Option<String>,
-    #[serde(deserialize_with = "deserialize_string_to_f32")]
+    #[serde(deserialize_with = "deserialize_optional_f32")]
     pub weight_kg: Option<f32>,
-    #[serde(deserialize_with = "deserialize_string_to_f32")]
+    #[serde(deserialize_with = "deserialize_optional_f32")]
     pub height_cm: Option<f32>,
     pub hb_range: Option<String>,
     pub medical_conditions: Option<String>,
     pub emergency_contact_person: Option<String>,
     pub emergency_contact: Option<String>,
-    pub vaccination_certificate: Option<String>,
 }
 
-fn deserialize_string_to_f32<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>
+// Helper function to deserialize optional f32 from string or number
+fn deserialize_optional_f32<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let s: Option<String> = Option::deserialize(deserializer)?;
-    match s {
-        Some(s) => s.parse::<f32>().map(Some).map_err(serde::de::Error::custom),
-        None => Ok(None),
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrFloat {
+        String(String),
+        Float(f32),
+    }
+
+    match StringOrFloat::deserialize(deserializer)? {
+        StringOrFloat::String(s) => {
+            if s.is_empty() {
+                Ok(None)
+            } else {
+                s.parse().map(Some).map_err(serde::de::Error::custom)
+            }
+        }
+        StringOrFloat::Float(f) => Ok(Some(f)),
     }
 }
 
@@ -129,66 +90,8 @@ pub struct StudentStep4 {
     pub id_proof: Option<String>,
     pub passport_photo: Option<String>,
     pub medical_certificate: Option<String>,
-    pub vaccination_certificate: Option<String>,
     pub other_documents: Option<String>,
-}
-
-#[tauri::command]
-pub async fn save_student_document(
-    app_handle: AppHandle,
-    student_id: i64,
-    document_type: String,
-    file_name: String,
-    data: Vec<u8>,
-) -> Result<String, String> {
-    let app_dir = app_handle.path().app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-    
-    let documents_dir = app_dir.join("Students_Documents");
-    fs::create_dir_all(&documents_dir)
-        .map_err(|e| format!("Failed to create documents directory: {}", e))?;
-
-    let safe_filename = format!("{}_{}_{}", student_id, document_type, file_name)
-        .replace(' ', "_")
-        .replace('/', "_");
-
-    let file_path = documents_dir.join(&safe_filename);
-    
-    fs::write(&file_path, data)
-        .map_err(|e| format!("Failed to write document: {}", e))?;
-
-    Ok(safe_filename)
-}
-
-#[tauri::command]
-pub async fn get_student_document(
-    app_handle: AppHandle,
-    file_name: String,
-) -> Result<Vec<u8>, String> {
-    let app_dir = app_handle.path().app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-    
-    let file_path = app_dir.join("Students_Documents").join(&file_name);
-    
-    fs::read(&file_path)
-        .map_err(|e| format!("Failed to read document: {}", e))
-}
-
-#[tauri::command]
-pub async fn get_student_document_path(
-    app_handle: AppHandle,
-    file_name: String,
-) -> Result<String, String> {
-    let app_dir = app_handle.path().app_data_dir()
-        .map_err(|e| format!("Failed to get app data directory: {}", e))?;
-    
-    let file_path = app_dir.join("Students_Documents").join(file_name);
-    
-    if file_path.exists() {
-        Ok(file_path.to_string_lossy().into_owned())
-    } else {
-        Err("Document not found".to_string())
-    }
+    pub vaccination_certificate: Option<String>, // Added new field
 }
 
 #[tauri::command]
@@ -198,10 +101,10 @@ pub async fn create_student1(
 ) -> Result<i64, String> {
     let conn = state.0.lock().unwrap();
 
-    // First check if the class exists (using the string class_id)
+    // Check if class exists
     let class_exists: i64 = conn.query_row(
         "SELECT COUNT(1) FROM classes WHERE id = ?",
-        params![&student.class_id], // Use the string class_id directly
+        params![&student.class_id],
         |row| row.get(0),
     ).map_err(|e| format!("Class validation failed: {}", e))?;
 
@@ -213,68 +116,68 @@ pub async fn create_student1(
         conn.execute(
             "UPDATE students SET
                 gr_number = COALESCE(?1, ''),
-                student_id = COALESCE(?2, ''),
-                roll_number = COALESCE(?3, ''),
-                full_name = ?4,
-                dob = ?5,
-                gender = ?6,
-                mother_name = ?7,
-                father_name = ?8,
-                nationality = COALESCE(?9, 'Indian'),
-                profile_image = COALESCE(?10, ''),
-                class_id = ?11,
-                section = ?12,
-                academic_year = ?13,
-                email = '',
-                mobile_number = '',
-                alternate_contact_number = NULL,
-                address = '',
-                city = '',
-                state = '',
-                country = 'India',
-                postal_code = '',
-                guardian_contact_info = ''
-             WHERE id = ?14",
+                roll_number = COALESCE(?2, ''),
+                full_name = ?3,
+                dob = ?4,
+                gender = ?5,
+                mother_name = ?6,
+                father_name = ?7,
+                father_occupation = ?8,
+                mother_occupation = ?9,
+                annual_income = ?10,
+                nationality = COALESCE(?11, 'Indian'),
+                profile_image = COALESCE(?12, ''),
+                class_id = ?13,
+                section = ?14,
+                academic_year = ?15
+             WHERE id = ?16",
             params![
                 student.gr_number,
-                student.student_id,
                 student.roll_number,
                 student.full_name,
                 student.dob,
                 student.gender,
                 student.mother_name,
                 student.father_name,
+                student.father_occupation,
+                student.mother_occupation,
+                student.annual_income,
                 student.nationality,
                 student.profile_image,
-                student.class_id, // Use the string class_id directly
+                student.class_id,
                 student.section,
                 student.academic_year,
                 id
             ],
         )
         .map_err(|e| e.to_string())?;
+
         Ok(id)
     } else {
         conn.execute(
             "INSERT INTO students (
-                gr_number, student_id, roll_number, full_name, dob, gender,
-                mother_name, father_name, nationality, profile_image,
-                class_id, section, academic_year,
-                email, mobile_number, alternate_contact_number,
-                address, city, state, country, postal_code, guardian_contact_info
-            ) VALUES (COALESCE(?1, ''), COALESCE(?2, ''), COALESCE(?3, ''), ?4, ?5, ?6, ?7, ?8, COALESCE(?9, 'Indian'), COALESCE(?10, ''), ?11, ?12, ?13, '', '', NULL, '', '', '', 'India', '', '')",
+                gr_number, roll_number, full_name, dob, gender,
+                mother_name, father_name, father_occupation, mother_occupation, annual_income,
+                nationality, profile_image, class_id, section, academic_year
+            ) VALUES (
+                COALESCE(?1, ''), COALESCE(?2, ''), ?3, ?4, ?5,
+                ?6, ?7, ?8, ?9, ?10,
+                COALESCE(?11, 'Indian'), COALESCE(?12, ''), ?13, ?14, ?15
+            )",
             params![
                 student.gr_number,
-                student.student_id,
                 student.roll_number,
                 student.full_name,
                 student.dob,
                 student.gender,
                 student.mother_name,
                 student.father_name,
+                student.father_occupation,
+                student.mother_occupation,
+                student.annual_income,
                 student.nationality,
                 student.profile_image,
-                student.class_id, // Use the string class_id directly
+                student.class_id,
                 student.section,
                 student.academic_year,
             ],
@@ -284,6 +187,7 @@ pub async fn create_student1(
         Ok(conn.last_insert_rowid())
     }
 }
+
 
 #[tauri::command]
 pub async fn create_student2(
@@ -339,9 +243,8 @@ pub async fn create_student3(
             hb_range = ?6,
             medical_conditions = ?7,
             emergency_contact_person = ?8,
-            emergency_contact = ?9,
-            vaccination_certificate = ?10
-         WHERE id = ?11",
+            emergency_contact = ?9
+         WHERE id = ?10",
         params![
             student.blood_group,
             student.status,
@@ -352,7 +255,6 @@ pub async fn create_student3(
             student.medical_conditions,
             student.emergency_contact_person,
             student.emergency_contact,
-            student.vaccination_certificate,
             student.id,
         ],
     )
@@ -364,45 +266,13 @@ pub async fn create_student3(
 #[tauri::command]
 pub async fn create_student4(
     state: State<'_, DbState>,
-    app_handle: tauri::AppHandle,
+    app_handle: AppHandle,
     student: StudentStep4,
 ) -> Result<(), String> {
-    // Validate required documents
-    let required_docs = [
-        ("Birth Certificate", &student.birth_certificate),
-        ("Transfer Certificate", &student.transfer_certificate),
-        ("Previous Academic Records", &student.previous_academic_records),
-        ("Address Proof", &student.address_proof),
-        ("ID Proof", &student.id_proof),
-        ("Passport Photo", &student.passport_photo),
-    ];
-    
-    let missing_docs: Vec<_> = required_docs
-        .iter()
-        .filter(|(_, doc)| doc.is_none())
-        .map(|(name, _)| name.to_string())
-        .collect();
-    
-    if !missing_docs.is_empty() {
-        return Err(format!(
-            "The following documents are required but missing: {}",
-            missing_docs.join(", ")
-        ));
-    }
-
-    let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-
-    let documents_dir = app_data_dir.join("Students_Documents");
-    fs::create_dir_all(&documents_dir)
-        .map_err(|e| format!("Failed to create documents directory: {}", e))?;
+    let conn = state.0.lock().map_err(|e| format!("Failed to lock DB: {}", e))?;
 
     conn.execute(
-        "UPDATE students SET
+        "UPDATE students SET 
             birth_certificate = ?1,
             transfer_certificate = ?2,
             previous_academic_records = ?3,
@@ -410,8 +280,8 @@ pub async fn create_student4(
             id_proof = ?5,
             passport_photo = ?6,
             medical_certificate = ?7,
-            vaccination_certificate = ?8,
-            other_documents = ?9
+            other_documents = ?8,
+            vaccination_certificate = ?9
          WHERE id = ?10",
         params![
             student.birth_certificate,
@@ -421,24 +291,70 @@ pub async fn create_student4(
             student.id_proof,
             student.passport_photo,
             student.medical_certificate,
-            student.vaccination_certificate,
             student.other_documents,
-            student.id,
+            student.vaccination_certificate,
+            student.id
         ],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| format!("DB update failed: {}", e))?;
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn upload_student_file(
+    app_handle: AppHandle,
+    id: i64,
+    file_name: String,
+    file_bytes: Vec<u8>,
+) -> Result<String, String> {
+    use std::fs;
+    use std::io::Write;
+    use std::path::Path;
+
+    // Target directory for all student documents
+    let docs_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("Failed to get app dir: {}", e))?
+        .join("Students_Documents");
+
+    // Ensure directory exists
+    fs::create_dir_all(&docs_dir)
+        .map_err(|e| format!("Failed to create docs dir: {}", e))?;
+
+    // Extract file extension (default to pdf if none)
+    let ext = Path::new(&file_name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("pdf");
+
+    // Use the original filename (without extension) as document type
+    let doc_type = Path::new(&file_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown");
+
+    // Final file name format: {id}_{doc_type}.{ext}
+    let new_filename = format!("{}_{}.{}", id, doc_type, ext);
+    let dest_path = docs_dir.join(&new_filename);
+
+    // Write the file bytes to destination
+    let mut file = fs::File::create(&dest_path)
+        .map_err(|e| format!("Failed to create file: {}", e))?;
+    file.write_all(&file_bytes)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(new_filename)
+}
+
 
 #[tauri::command]
 pub fn get_all_student1(state: State<'_, DbState>) -> Result<Vec<(i64, StudentStep1)>, String> {
     let conn = state.0.lock().unwrap();
 
     let mut stmt = conn.prepare(
-        "SELECT id, gr_number, student_id, roll_number, full_name, dob, gender,
-                mother_name, father_name, nationality, profile_image,
-                class_id, section, academic_year
+        "SELECT id, gr_number, roll_number, full_name, dob, gender,
+                mother_name, father_name, father_occupation, mother_occupation, annual_income,
+                nationality, profile_image, class_id, section, academic_year
          FROM students"
     ).map_err(|e| e.to_string())?;
 
@@ -449,18 +365,20 @@ pub fn get_all_student1(state: State<'_, DbState>) -> Result<Vec<(i64, StudentSt
             StudentStep1 {
                 id: Some(id),
                 gr_number: row.get(1)?,
-                student_id: row.get(2)?,
-                roll_number: row.get(3)?,
-                full_name: row.get(4)?,
-                dob: row.get(5)?,
-                gender: row.get(6)?,
-                mother_name: row.get(7)?,
-                father_name: row.get(8)?,
-                nationality: row.get(9)?,
-                profile_image: row.get(10)?,
-                class_id: row.get(11)?, // Read directly as String
-                section: row.get(12)?,
-                academic_year: row.get(13)?,
+                roll_number: row.get(2)?,
+                full_name: row.get(3)?,
+                dob: row.get(4)?,
+                gender: row.get(5)?,
+                mother_name: row.get(6)?,
+                father_name: row.get(7)?,
+                father_occupation: row.get(8)?,
+                mother_occupation: row.get(9)?,
+                annual_income: row.get(10)?,
+                nationality: row.get(11)?,
+                profile_image: row.get(12)?,
+                class_id: row.get(13)?,
+                section: row.get(14)?,
+                academic_year: row.get(15)?,
             },
         ))
     }).map_err(|e| e.to_string())?;
@@ -507,7 +425,7 @@ pub fn get_all_student3(state: State<'_, DbState>) -> Result<Vec<(i64, StudentSt
 
     let mut stmt = conn.prepare(
         "SELECT id, blood_group, status, admission_date, weight_kg, height_cm, hb_range,
-                medical_conditions, emergency_contact_person, emergency_contact, vaccination_certificate
+                medical_conditions, emergency_contact_person, emergency_contact
          FROM students",
     ).map_err(|e| e.to_string())?;
 
@@ -526,7 +444,6 @@ pub fn get_all_student3(state: State<'_, DbState>) -> Result<Vec<(i64, StudentSt
                     medical_conditions: row.get(7)?,
                     emergency_contact_person: row.get(8)?,
                     emergency_contact: row.get(9)?,
-                    vaccination_certificate: row.get(10)?,
                 },
             ))
         })
@@ -541,7 +458,7 @@ pub fn get_all_student4(state: State<'_, DbState>) -> Result<Vec<(i64, StudentSt
 
     let mut stmt = conn.prepare(
         "SELECT id, birth_certificate, transfer_certificate, previous_academic_records,
-                address_proof, id_proof, passport_photo, medical_certificate,
+                address_proof, id_proof, passport_photo, medical_certificate, 
                 vaccination_certificate, other_documents
          FROM students",
     )
@@ -575,9 +492,9 @@ pub fn get_student1(state: State<DbState>, id: i64) -> Result<StudentStep1, Stri
     let conn = state.0.lock().unwrap();
 
     let mut stmt = conn.prepare(
-        "SELECT gr_number, student_id, roll_number, full_name, dob, gender,
-                mother_name, father_name, nationality, profile_image,
-                class_id, section, academic_year
+        "SELECT gr_number, roll_number, full_name, dob, gender,
+                mother_name, father_name, father_occupation, mother_occupation, annual_income,
+                nationality, profile_image, class_id, section, academic_year
          FROM students WHERE id = ?1"
     ).map_err(|e| e.to_string())?;
 
@@ -585,24 +502,26 @@ pub fn get_student1(state: State<DbState>, id: i64) -> Result<StudentStep1, Stri
         Ok(StudentStep1 {
             id: Some(id),
             gr_number: row.get(0)?,
-            student_id: row.get(1)?,
-            roll_number: row.get(2)?,
-            full_name: row.get(3)?,
-            dob: row.get(4)?,
-            gender: row.get(5)?,
-            mother_name: row.get(6)?,
-            father_name: row.get(7)?,
-            nationality: row.get(8)?,
-            profile_image: row.get(9)?,
-            class_id: row.get(10)?, // Read directly as String
-            section: row.get(11)?,
-            academic_year: row.get(12)?,
+            roll_number: row.get(1)?,
+            full_name: row.get(2)?,
+            dob: row.get(3)?,
+            gender: row.get(4)?,
+            mother_name: row.get(5)?,
+            father_name: row.get(6)?,
+            father_occupation: row.get(7)?,
+            mother_occupation: row.get(8)?,
+            annual_income: row.get(9)?,
+            nationality: row.get(10)?,
+            profile_image: row.get(11)?,
+            class_id: row.get(12)?,
+            section: row.get(13)?,
+            academic_year: row.get(14)?,
         })
     }).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn get_student2(state: tauri::State<DbState>, id: i64) -> Result<StudentStep2, String> {
+pub fn get_student2(state: State<DbState>, id: i64) -> Result<StudentStep2, String> {
     let conn = state.0.lock().unwrap();
 
     let mut stmt = conn.prepare(
@@ -628,12 +547,12 @@ pub fn get_student2(state: tauri::State<DbState>, id: i64) -> Result<StudentStep
 }
 
 #[tauri::command]
-pub fn get_student3(state: tauri::State<DbState>, id: i64) -> Result<StudentStep3, String> {
+pub fn get_student3(state: State<DbState>, id: i64) -> Result<StudentStep3, String> {
     let conn = state.0.lock().unwrap();
 
     let mut stmt = conn.prepare(
         "SELECT blood_group, status, admission_date, weight_kg, height_cm, hb_range,
-                medical_conditions, emergency_contact_person, emergency_contact, vaccination_certificate
+                medical_conditions, emergency_contact_person, emergency_contact
          FROM students WHERE id = ?1"
     ).map_err(|e| e.to_string())?;
 
@@ -649,37 +568,61 @@ pub fn get_student3(state: tauri::State<DbState>, id: i64) -> Result<StudentStep
             medical_conditions: row.get(6)?,
             emergency_contact_person: row.get(7)?,
             emergency_contact: row.get(8)?,
-            vaccination_certificate: row.get(9)?,
         })
     }).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn get_student4(state: State<'_, DbState>, id: i64) -> Result<StudentStep4, String> {
+pub fn get_student4(app_handle: AppHandle, state: State<'_, DbState>, id: i64) -> Result<StudentStep4, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
-    conn.query_row(
-        "SELECT birth_certificate, transfer_certificate, previous_academic_records,
-                address_proof, id_proof, passport_photo, medical_certificate,
-                vaccination_certificate, other_documents
-         FROM students WHERE id = ?1",
-        [id],
-        |row| {
-            Ok(StudentStep4 {
-                id,
-                birth_certificate: row.get(0)?,
-                transfer_certificate: row.get(1)?,
-                previous_academic_records: row.get(2)?,
-                address_proof: row.get(3)?,
-                id_proof: row.get(4)?,
-                passport_photo: row.get(5)?,
-                medical_certificate: row.get(6)?,
-                vaccination_certificate: row.get(7)?,
-                other_documents: row.get(8)?,
-            })
-        },
-    )
-    .map_err(|e| e.to_string())
+    let (bc, tc, par, ap, ip, pp, mc, vc, od): (Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>) =
+        conn.query_row(
+            "SELECT birth_certificate, transfer_certificate, previous_academic_records,
+                    address_proof, id_proof, passport_photo, medical_certificate, 
+                    vaccination_certificate, other_documents
+             FROM students WHERE id = ?1",
+            [id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    let docs_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("App dir error: {}", e))?
+        .join("Students_Documents");
+
+    let full_path = |filename: &Option<String>| {
+        filename
+            .as_ref()
+            .map(|f| docs_dir.join(f).to_string_lossy().to_string())
+    };
+
+    Ok(StudentStep4 {
+        id,
+        birth_certificate: full_path(&bc),
+        transfer_certificate: full_path(&tc),
+        previous_academic_records: full_path(&par),
+        address_proof: full_path(&ap),
+        id_proof: full_path(&ip),
+        passport_photo: full_path(&pp),
+        medical_certificate: full_path(&mc),
+        vaccination_certificate: full_path(&vc),
+        other_documents: full_path(&od),
+    })
 }
 
 #[tauri::command]
@@ -692,7 +635,7 @@ pub async fn delete_student(
 
     let documents = conn.query_row(
         "SELECT birth_certificate, transfer_certificate, previous_academic_records,
-                address_proof, id_proof, passport_photo, medical_certificate,
+                address_proof, id_proof, passport_photo, medical_certificate, 
                 vaccination_certificate, other_documents
          FROM students WHERE id = ?1",
         [id],
@@ -744,39 +687,87 @@ pub async fn delete_student(
     Ok(())
 }
 
+// #[tauri::command]
+// pub async fn get_student_document_url(
+//     app_handle: tauri::AppHandle,
+//     // id: i64,                 // renamed from student_id to id
+//     file_name: Option<String>,
+// ) -> Result<Option<String>, String> {
+//     match file_name {
+//         Some(name) => {
+//             // Pass only app_handle and file_name because get_student_document_path doesn't use id
+//             let path = get_student_document_path(app_handle, name).await?;
+//             Ok(Some(format!("file://{}", path)))
+//         }
+//         None => Ok(None),
+//     }
+// }
+
+
 #[tauri::command]
-pub async fn download_student_document(
-    source_path: String,
+pub async fn get_student_document_base64(
+    app_handle: tauri::AppHandle,
+    file_name: String,
 ) -> Result<String, String> {
-    let path = std::path::Path::new(&source_path);
-    if !path.exists() {
-        return Err("File not found".into());
-    }
+    use std::fs;
+    use base64::{engine::general_purpose, Engine as _};
 
-    // Get the downloads directory
-    if let Some(downloads_dir) = dirs::download_dir() {
-        let file_name = path.file_name()
-            .ok_or("Invalid file name")?
-            .to_str()
-            .ok_or("Invalid file name")?;
-        
-        let dest_path = downloads_dir.join(file_name);
+    let path = get_student_document_path(app_handle, file_name.clone()).await?;
+    let content = fs::read(&path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
 
-        // Copy the file
-        std::fs::copy(&path, &dest_path)
-            .map_err(|e| format!("Failed to copy file: {}", e))?;
-        
-        // Return the destination path
-        Ok(dest_path.to_string_lossy().into_owned())
-    } else {
-        Err("Could not determine downloads directory".into())
-    }
+    // Detect file extension
+    let mime_type = match std::path::Path::new(&file_name).extension().and_then(|ext| ext.to_str()) {
+        Some("jpg" | "jpeg") => "image/jpeg",
+        Some("png") => "image/png",
+        Some("gif") => "image/gif",
+        Some("pdf") => "application/pdf",
+        _ => "application/octet-stream",
+    };
+
+    let encoded = general_purpose::STANDARD.encode(content);
+    let data_url = format!("data:{};base64,{}", mime_type, encoded);
+    Ok(data_url)
 }
 
-pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
-    conn.execute("PRAGMA foreign_keys = ON", [])?;
+
+#[tauri::command]
+pub async fn get_student_document_path(
+    app_handle: tauri::AppHandle,
+    file_name: String,
+) -> Result<String, String> {
+    let documents_dir = app_handle.path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app dir: {}", e))?
+        .join("Students_Documents");
+
+    // Ensure the directory exists
+    std::fs::create_dir_all(&documents_dir)
+        .map_err(|e| format!("Failed to create docs dir: {}", e))?;
+
+    // Return the full path to the requested document file
+    Ok(documents_dir.join(file_name).to_string_lossy().into_owned())
+}
+
+// #[tauri::command]
+// pub async fn get_student_document(
+//     app_handle: AppHandle,
+//     file_name: String,
+// ) -> Result<Vec<u8>, String> {
+//     let documents_dir = app_handle.path()
+//         .app_data_dir()
+//         .map_err(|e| format!("Failed to get app dir: {}", e))?
+//         .join("Students_Documents");
+
+//     let file_path = documents_dir.join(&file_name);
     
-    // Check if the table already exists
+//     fs::read(&file_path)
+//         .map_err(|e| format!("Failed to read file {}: {}", file_name, e))
+// }
+
+pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
+    // conn.execute("DROP TABLE IF EXISTS students", [])?;
+    conn.execute("PRAGMA foreign_keys = ON", [])?;
     let table_exists: i64 = conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='students'",
         [],
@@ -787,36 +778,38 @@ pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
         conn.execute(
             "CREATE TABLE students (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-                -- General Information (required fields)
+                
+                -- General Information
                 gr_number TEXT NOT NULL DEFAULT '',
-                student_id TEXT NOT NULL DEFAULT '',
                 roll_number TEXT NOT NULL DEFAULT '',
                 full_name TEXT NOT NULL,
                 dob TEXT NOT NULL,
                 gender TEXT NOT NULL,
                 mother_name TEXT NOT NULL,
                 father_name TEXT NOT NULL,
+                father_occupation TEXT,
+                mother_occupation TEXT,
+                annual_income REAL,
                 nationality TEXT NOT NULL DEFAULT 'Indian',
                 profile_image TEXT NOT NULL DEFAULT '',
                 class_id TEXT NOT NULL,
-                section TEXT NOT NULL,
-                academic_year TEXT NOT NULL,
+                section TEXT,
+                academic_year TEXT,
 
                 -- Contact Information
-                email TEXT NOT NULL DEFAULT '',
-                mobile_number TEXT NOT NULL DEFAULT '',
+                email TEXT,
+                mobile_number TEXT,
                 alternate_contact_number TEXT,
-                address TEXT NOT NULL DEFAULT '',
-                city TEXT NOT NULL DEFAULT '',
-                state TEXT NOT NULL DEFAULT '',
-                country TEXT NOT NULL DEFAULT 'India',
-                postal_code TEXT NOT NULL DEFAULT '',
-                guardian_contact_info TEXT NOT NULL DEFAULT '',
+                address TEXT,
+                city TEXT,
+                state TEXT,
+                country TEXT DEFAULT 'India',
+                postal_code TEXT,
+                guardian_contact_info TEXT,
 
                 -- Health & Admission Details
                 blood_group TEXT,
-                status TEXT NOT NULL DEFAULT 'active',
+                status TEXT DEFAULT 'active',
                 admission_date TEXT,
                 weight_kg REAL,
                 height_cm REAL,
@@ -825,7 +818,7 @@ pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
                 emergency_contact_person TEXT,
                 emergency_contact TEXT,
 
-                -- Documents (all optional)
+                -- Documents
                 birth_certificate TEXT,
                 transfer_certificate TEXT,
                 previous_academic_records TEXT,
@@ -847,4 +840,63 @@ pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
     }
     
     Ok(())
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Student {
+    // General Information
+    pub id: Option<i64>,
+    pub gr_number: Option<String>,
+    pub roll_number: Option<String>,
+    pub full_name: String,
+    pub dob: String,
+    pub gender: String,
+    pub mother_name: String,
+    pub father_name: String,
+    pub father_occupation: Option<String>,
+    pub mother_occupation: Option<String>,
+    pub annual_income: Option<f64>,
+    pub nationality: Option<String>,
+    pub profile_image: Option<String>,
+    pub class_id: String,
+    pub section: Option<String>,
+    pub academic_year: Option<String>,
+
+    // Contact Information
+    pub email: String,
+    pub mobile_number: Option<String>,
+    pub alternate_contact_number: Option<String>,
+    pub address: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub country: Option<String>,
+    pub postal_code: Option<String>,
+    pub guardian_contact_info: Option<String>,
+
+    // Health & Admission Details
+    pub blood_group: Option<String>,
+    pub status: Option<String>,
+    pub admission_date: Option<String>,
+    pub weight_kg: Option<f32>,
+    pub height_cm: Option<f32>,
+    pub hb_range: Option<String>,
+    pub medical_conditions: Option<String>,
+    pub emergency_contact_person: Option<String>,
+    pub emergency_contact: Option<String>,
+
+    // Documents
+    pub birth_certificate: Option<String>,
+    pub transfer_certificate: Option<String>,
+    pub previous_academic_records: Option<String>,
+    pub address_proof: Option<String>,
+    pub id_proof: Option<String>,
+    pub passport_photo: Option<String>,
+    pub medical_certificate: Option<String>,
+    pub vaccination_certificate: Option<String>,
+    pub other_documents: Option<String>,
+
+    // Timestamps
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }

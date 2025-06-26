@@ -3,10 +3,13 @@ import { useParams } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { useNavigate } from 'react-router-dom';
 
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import {
   CloudUpload as CloudUploadIcon,
   Visibility as VisibilityIcon,
-  Cancel as CancelIcon, Replay as ReplayIcon
+  Cancel as CancelIcon,
+  Replay as ReplayIcon,
+  Download as DownloadIcon
 } from '@mui/icons-material';
 import {
   Box, Stepper, Step, StepLabel, Stack, Button, TextField, Container,
@@ -15,102 +18,95 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Chip,Paper
+  Chip, Paper, LinearProgress
 } from '@mui/material';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
-export type Student = {
+
+
+export type StudentStep1 = {
   id?: number;
-  // General Information
-  gr_number: string;
-  student_id: string;
-  roll_number: string;
+  gr_number?: string;
+  roll_number?: string;
   full_name: string;
   dob: string;
   gender: string;
   mother_name: string;
+  mother_occupation?: string;
   father_name: string;
-  nationality: string;
-  profile_image: string;
+  father_occupation?: string;
+  annual_income?: number;
+  nationality?: string;
+  profile_image?: string;
   class_id: string;
-  section: string;
-  academic_year: string;
-
-  // Contact Information
-  email: string;
-  mobile_number: string;
-  alternate_contact_number: string;
-  address: string;
-  city: string;
-  state: string;
-  country: string;
-  postal_code: string;
-  guardian_contact_info: string;
-
-  // Health & Admission Details
-  blood_group: string;
-  status: string;
-  admission_date: string;
-  weight_kg: number;
-  height_cm: number;
-  hb_range: string;
-  medical_conditions: string;
-  emergency_contact_person: string;
-  emergency_contact: string;
-
-  // Documents
-  birth_certificate: string;
-  transfer_certificate: string;
-  previous_academic_records: string;
-  address_proof: string;
-  id_proof: string;
-  passport_photo: string;
-  medical_certificate: string;
-  vaccination_certificate: string;
-  other_documents: string;
+  section?: string;
+  academic_year?: string;
 };
 
-type StudentStep1 = Pick<Student,
-  'id' | 'gr_number' | 'student_id' | 'roll_number' | 'full_name' |
-  'dob' | 'gender' | 'mother_name' | 'father_name' | 'nationality' |
-  'profile_image' | 'class_id' | 'section' | 'academic_year'
->;
 
-type StudentStep2 = Pick<Student,
-  'id' | 'email' | 'mobile_number' | 'alternate_contact_number' |
-  'address' | 'city' | 'state' | 'country' | 'postal_code' | 'guardian_contact_info'
->;
+export type StudentStep2 = {
+ id?: number;
+  email: string;
+  mobile_number?: string;
+  alternate_contact_number?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postal_code?: string;
+  guardian_contact_info?: string;
+};
 
-type StudentStep3 = Pick<Student,
-  'id' | 'blood_group' | 'status' | 'admission_date' | 'weight_kg' |
-  'height_cm' | 'hb_range' | 'medical_conditions' | 'emergency_contact_person' | 'emergency_contact'
->;
+export type StudentStep3 = {
+   id?: number;
+  blood_group?: string;
+  status?: string;
+  admission_date?: string;
+  weight_kg?: number;
+  height_cm?: number;
+  hb_range?: string;
+  medical_conditions?: string;
+  emergency_contact_person?: string;
+  emergency_contact?: string;
+};
 
-type StudentStep4 = Pick<Student,
-  'id' | 'birth_certificate' | 'transfer_certificate' | 'previous_academic_records' |
-  'address_proof' | 'id_proof' | 'passport_photo' | 'medical_certificate' |
-  'vaccination_certificate' | 'other_documents'
->;
+export type StudentStep4 = {
+  id?: number;
+  birth_certificate?: string;
+  transfer_certificate?: string;
+  previous_academic_records?: string;
+  address_proof?: string;
+  id_proof?: string;
+  passport_photo?: string;
+  medical_certificate?: string;
+  other_documents?: string;
+  vaccination_certificate?: string;
+};
+
+export type Student = StudentStep1 & StudentStep2 & StudentStep3 & StudentStep4;
+
 
 
 const INITIAL_VALUES: Student = {
-  // General Information
+ id: undefined,
   gr_number: '',
-  student_id: '',
   roll_number: '',
   full_name: '',
   dob: '',
   gender: '',
   mother_name: '',
+  mother_occupation: '',
   father_name: '',
+  father_occupation: '',
+  annual_income: undefined,
   nationality: 'Indian',
   profile_image: '',
   class_id: '',
   section: '',
   academic_year: new Date().getFullYear().toString(),
 
-  // Contact Information
+
   email: '',
   mobile_number: '',
   alternate_contact_number: '',
@@ -121,18 +117,16 @@ const INITIAL_VALUES: Student = {
   postal_code: '',
   guardian_contact_info: '',
 
-  // Health & Admission
   blood_group: '',
   status: 'active',
   admission_date: '',
-  weight_kg: 0,
-  height_cm: 0,
+  weight_kg: undefined,
+  height_cm: undefined,
   hb_range: '',
   medical_conditions: '',
   emergency_contact_person: '',
   emergency_contact: '',
 
-  // Documents
   birth_certificate: '',
   transfer_certificate: '',
   previous_academic_records: '',
@@ -145,14 +139,11 @@ const INITIAL_VALUES: Student = {
 };
 
 const REQUIRED_FIELDS: Record<number, (keyof Student)[]> = {
-  0: ['full_name', 'dob', 'gender', 'class_id', 'section', 'academic_year'],
-  1: ['mobile_number', 'address', 'city', 'state', 'country'],
-  2: ['status', 'admission_date', 'emergency_contact'],
-  3: [] // No required fields for documents
+  0: ['full_name', 'dob', 'gender', 'class_id', 'mother_name', 'father_name', 'father_occupation', 'annual_income'],
+  1: ['email', 'mobile_number'],
+  2: ['status', 'emergency_contact'],
+  3: []
 };
-
-
-
 
 const STATUS_OPTIONS = ['active', 'inactive', 'alumni'];
 const GENDER_OPTIONS = ['male', 'female', 'other'];
@@ -162,12 +153,22 @@ type AddStudentViewProps = {
   editingStudent?: Student | null;
 };
 
+type FileObject = {
+  file: File;
+  preview: string;
+};
+
+type StudentStringKeys = {
+  [K in keyof Student]: Student[K] extends string | undefined ? K : never
+}[keyof Student];
+
 export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
-
   const [previewOpen, setPreviewOpen] = useState(false);
-const [previewData, setPreviewData] = useState('');
-const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image');
-
+  const [previewData, setPreviewData] = useState<string>('');
+  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'unsupported'>('unsupported');
+  const [previewFileName, setPreviewFileName] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [classOptions, setClassOptions] = useState<{ id: number, class_name: string }[]>([]);
   const [sectionOptions, setSectionOptions] = useState<string[]>(['A', 'B', 'C', 'D']);
@@ -181,78 +182,98 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
   const [activeStep, setActiveStep] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [fileObjects, setFileObjects] = useState<Record<string, FileObject>>({});
 
-
-  const readFileAsBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
- const handleFileUpload = async (field: keyof Student, files: FileList | null) => {
+  const handleFileUpload = async (field: keyof Student, files: FileList | null) => {
   if (!files || files.length === 0) return;
-
+  
+  const file = files[0];
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  
   try {
-    const file = files[0];
+    // Read file as bytes
     const arrayBuffer = await file.arrayBuffer();
     const fileBytes = Array.from(new Uint8Array(arrayBuffer));
-
-    // Call the Rust command to save the file
-    const fileName = await invoke<string>('save_student_document', {
-      studentId: formData.id || studentId,
-      documentType: field,
+    
+    // Upload file to backend
+    const fileName = await invoke<string>('upload_student_file', {
+      id: formData.id || studentId,
       fileName: file.name,
-      data: fileBytes,
+      fileBytes,
     });
-
-    // Store just the filename in formData
+    
+    // Update form data with the returned filename
     setFormData(prev => ({
       ...prev,
       [field]: fileName
     }));
+    
+    // Create preview for UI
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setFileObjects(prev => ({
+          ...prev,
+          [field]: { file, preview: result }
+        }));
+      }
+    };
+    
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+      reader.readAsDataURL(file);
+    } else if (extension === 'pdf') {
+      reader.readAsDataURL(file);
+    }
+    
   } catch (error) {
     console.error('Error uploading file:', error);
     setSnackbar({ open: true, message: 'Failed to upload file', severity: 'error' });
   }
 };
- const handlePreview = async (field: keyof Student) => {
-  const fileName = formData[field];
-  if (!fileName) return;
 
-  try {
-    // Get the full file path from Rust
-    const filePath = await invoke<string>('get_student_document_path', {
-      fileName: String(fileName)
-    });
+  const handlePreview = (field: keyof Student) => {
+    const fileObj = fileObjects[field as string];
+    if (!fileObj) return;
 
-    // Determine file type
-    if (['profile_image', 'passport_photo'].includes(field)) {
-      setPreviewType('image');
-      // Read image file directly
-      setPreviewData(filePath);
-    } else if (field.endsWith('_certificate') || field === 'id_proof') {
-      setPreviewType('pdf');
-      setPreviewData(filePath);
-    } else {
-      setPreviewType('other');
-      setPreviewData(filePath);
+    const extension = fileObj.file.name.split('.').pop()?.toLowerCase();
+    let fileType: 'image' | 'pdf' | 'unsupported' = 'unsupported';
+
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(extension || '')) {
+      fileType = 'image';
+    } else if (extension === 'pdf') {
+      fileType = 'pdf';
     }
 
+    setPreviewType(fileType);
+    setPreviewData(fileObj.preview);
+    setPreviewFileName(fileObj.file.name);
     setPreviewOpen(true);
-  } catch (error) {
-    console.error('Error previewing file:', error);
-    setSnackbar({ open: true, message: 'Failed to preview file', severity: 'error' });
-  }
-};
+  };
+
+  const handleDownload = () => {
+    if (!previewData) return;
+
+    try {
+      const link = document.createElement('a');
+      link.href = previewData;
+      link.download = previewFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setSnackbar({ open: true, message: 'File download initiated', severity: 'success' });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      setSnackbar({ open: true, message: 'Failed to download file', severity: 'error' });
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
       const numericId = parseInt(id || '', 10);
 
       try {
-        // Fetch classes first
         const classes = await invoke<{ id: number, class_name: string }[]>('get_all_classes');
         setClassOptions(classes);
 
@@ -271,7 +292,7 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
               ...s3,
               ...s4,
               id: numericId,
-              class_id: s1.class_id.toString(), // Ensure class_id is string for the select
+              class_id: s1.class_id.toString(),
             });
             setStudentId(numericId);
           } catch (err) {
@@ -286,50 +307,51 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
     init();
   }, [id, editingStudent]);
 
-  const validateField = (field: keyof Student, value: string) => {
+  const validateField = (field: keyof Student, value: string | number | undefined) => {
     let errorMessage = '';
-    if (REQUIRED_FIELDS[activeStep].includes(field) && !value) {
+    const stringValue = value?.toString() || '';
+
+    if (REQUIRED_FIELDS[activeStep].includes(field) && !stringValue) {
       errorMessage = `${field} is required`;
-    } else if (value) {
+    } else if (stringValue) {
       switch (field) {
         case 'full_name':
         case 'father_name':
         case 'mother_name':
-          if (!/^[A-Za-z\s]+$/.test(value)) {
+          if (!/^[A-Za-z\s]+$/.test(stringValue)) {
             errorMessage = `${field} should only contain alphabetic characters`;
           }
           break;
         case 'mobile_number':
         case 'alternate_contact_number':
         case 'emergency_contact':
-          if (!/^\d{10}$/.test(value)) {
+          if (!/^\d{10}$/.test(stringValue)) {
             errorMessage = 'Phone number must be 10 digits';
           }
           break;
         case 'email':
-          if (!/\S+@\S+\.\S+/.test(value)) {
+          if (!/\S+@\S+\.\S+/.test(stringValue)) {
             errorMessage = 'Invalid email format';
           }
           break;
         case 'dob':
         case 'admission_date':
-          if (new Date(value).toString() === 'Invalid Date') {
+          if (new Date(stringValue).toString() === 'Invalid Date') {
             errorMessage = 'Invalid date';
           }
           break;
         case 'postal_code':
-          if (!/^\d{6}$/.test(value)) {
+          if (!/^\d{6}$/.test(stringValue)) {
             errorMessage = 'Postal code must be 6 digits';
           }
           break;
         case 'weight_kg':
         case 'height_cm':
-          if (isNaN(Number(value))) {
+          if (isNaN(Number(stringValue))) {
             errorMessage = 'Must be a number';
           }
           break;
         default:
-          // No validation for other fields or handle unexpected fields
           break;
       }
     }
@@ -339,7 +361,7 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
   const validateStep = () => {
     const newErrors: Partial<Record<keyof Student, string>> = {};
     REQUIRED_FIELDS[activeStep].forEach(field => {
-      const error = validateField(field, formData[field] as string);
+      const error = validateField(field, formData[field]);
       if (error) newErrors[field] = error;
     });
     setErrors(newErrors);
@@ -353,20 +375,22 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
       try {
         const newId = await invoke<number>('create_student1', {
           student: {
-            id: formData.id || studentId,
-            gr_number: formData.gr_number || null,
-            student_id: formData.student_id || null,
-            roll_number: formData.roll_number || null,
+            id: formData.id || studentId || undefined,
+            gr_number: formData.gr_number || undefined,
+            roll_number: formData.roll_number || undefined,
             full_name: formData.full_name,
             dob: formData.dob,
             gender: formData.gender,
             mother_name: formData.mother_name,
+            mother_occupation: formData.mother_occupation || undefined,
             father_name: formData.father_name,
-            nationality: formData.nationality || null,
-            profile_image: formData.profile_image || null,
+            father_occupation: formData.father_occupation || undefined,
+            annual_income: formData.annual_income || undefined,
+            nationality: formData.nationality || undefined,
+            profile_image: formData.profile_image || undefined,
             class_id: formData.class_id,
-            section: formData.section || null,
-            academic_year: formData.academic_year || null,
+            section: formData.section || undefined,
+            academic_year: formData.academic_year || undefined,
           },
         });
         setStudentId(newId);
@@ -382,15 +406,15 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
         await invoke('create_student2', {
           student: {
             id: formData.id || studentId,
-            email: formData.email || null,
-            mobile_number: formData.mobile_number || null,
-            alternate_contact_number: formData.alternate_contact_number || null,
-            address: formData.address || null,
-            city: formData.city || null,
-            state: formData.state || null,
-            country: formData.country || null,
-            postal_code: formData.postal_code || null,
-            guardian_contact_info: formData.guardian_contact_info || null,
+            email: formData.email,
+            mobile_number: formData.mobile_number || undefined,
+            alternate_contact_number: formData.alternate_contact_number || undefined,
+            address: formData.address || undefined,
+            city: formData.city || undefined,
+            state: formData.state || undefined,
+            country: formData.country || undefined,
+            postal_code: formData.postal_code || undefined,
+            guardian_contact_info: formData.guardian_contact_info || undefined,
           },
         });
         setSnackbar({ open: true, message: 'Contact information saved!', severity: 'success' });
@@ -404,15 +428,15 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
         await invoke('create_student3', {
           student: {
             id: formData.id || studentId,
-            blood_group: formData.blood_group || null,
-            status: formData.status || null,
-            admission_date: formData.admission_date || null,
-            weight_kg: formData.weight_kg || null,
-            height_cm: formData.height_cm || null,
-            hb_range: formData.hb_range || null,
-            medical_conditions: formData.medical_conditions || null,
-            emergency_contact_person: formData.emergency_contact_person || null,
-            emergency_contact: formData.emergency_contact || null,
+            blood_group: formData.blood_group || undefined,
+            status: formData.status || undefined,
+            admission_date: formData.admission_date || undefined,
+            weight_kg: formData.weight_kg || undefined,
+            height_cm: formData.height_cm || undefined,
+            hb_range: formData.hb_range || undefined,
+            medical_conditions: formData.medical_conditions || undefined,
+            emergency_contact_person: formData.emergency_contact_person || undefined,
+            emergency_contact: formData.emergency_contact || undefined,
           },
         });
         setSnackbar({ open: true, message: 'Health & admission info saved!', severity: 'success' });
@@ -426,46 +450,76 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
     }
   };
 
-
   const handleBack = () => setActiveStep(prev => prev - 1);
 
   const handleSubmit = async () => {
-    if (!validateStep()) return;
+  if (!validateStep()) return;
+  if (isSubmitting) return;
 
-    const finalId = formData.id || studentId;
-    if (!finalId) {
-      setSnackbar({ open: true, message: 'Missing student ID. Please complete Step 1.', severity: 'error' });
-      return;
-    }
+  const finalId = formData.id;
+  if (!finalId) {
+    setSnackbar({ open: true, message: 'Missing student ID. Please complete Step 1.', severity: 'error' });
+    return;
+  }
 
-    try {
-      await invoke('create_student4', {
-        student: {
-          id: finalId,
-          birth_certificate: formData.birth_certificate,
-          transfer_certificate: formData.transfer_certificate,
-          previous_academic_records: formData.previous_academic_records,
-          address_proof: formData.address_proof,
-          id_proof: formData.id_proof,
-          passport_photo: formData.passport_photo,
-          medical_certificate: formData.medical_certificate,
-          vaccination_certificate: formData.vaccination_certificate,
-          other_documents: formData.other_documents,
-        },
-      });
-      setSnackbar({ open: true, message: 'Documents saved!', severity: 'success' });
-      navigate('/dashboard/students', { replace: true });
-    } catch (error) {
-      console.error('Error saving documents:', error);
-      setSnackbar({ open: true, message: 'Failed to save documents.', severity: 'error' });
-    }
-  };
+  setIsSubmitting(true);
+
+  try {
+    // Prepare document data
+    const documentData = {
+      id: finalId,
+      birth_certificate: formData.birth_certificate || undefined,
+      transfer_certificate: formData.transfer_certificate || undefined,
+      previous_academic_records: formData.previous_academic_records || undefined,
+      address_proof: formData.address_proof || undefined,
+      id_proof: formData.id_proof || undefined,
+      passport_photo: formData.passport_photo || undefined,
+      medical_certificate: formData.medical_certificate || undefined,
+      vaccination_certificate: formData.vaccination_certificate || undefined,
+      other_documents: formData.other_documents || undefined,
+    };
+
+    await invoke('create_student4', { student: documentData });
+
+    setSnackbar({ open: true, message: 'Student saved successfully!', severity: 'success' });
+    navigate('/dashboard/students', { replace: true });
+  } catch (error) {
+    console.error('Error saving student:', error);
+    setSnackbar({ open: true, message: 'Failed to save student.', severity: 'error' });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
  const handleChange = (field: keyof Student) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const value = event.target.value;
+  let value: string | number | undefined = event.target.value;
+
+  if (field === 'annual_income') {
+    // Convert to number if not empty, else undefined
+    value = value === '' ? undefined : parseFloat(value);
+  } else {
+    // For other fields, keep as string or undefined
+    value = value === '' ? undefined : value;
+  }
+
+  setFormData((prev) => ({
+    ...prev,
+    [field]: value,
+  }));
+
+  if (touched[field]) {
+    setErrors((prev) => ({
+      ...prev,
+      [field]: validateField(field, value),
+    }));
+  }
+};
+
+  const handleNumberChange = (field: keyof Student) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value === '' ? undefined : parseFloat(event.target.value);
     setFormData((prev) => ({
       ...prev,
-      [field]: value === '' ? null : value,  // Store null for empty strings
+      [field]: value,
     }));
 
     if (touched[field]) {
@@ -478,7 +532,7 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
 
   const handleBlur = (field: keyof Student) => () => {
     setTouched(prev => ({ ...prev, [field]: true }));
-    setErrors(prev => ({ ...prev, [field]: validateField(field, formData[field] as string) }));
+    setErrors(prev => ({ ...prev, [field]: validateField(field, formData[field]) }));
   };
 
   const renderTextField = (label: string, field: keyof Student, type = 'text', multiline: number | boolean = false) => (
@@ -496,6 +550,19 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
     />
   );
 
+  const renderNumberField = (label: string, field: keyof Student) => (
+    <TextField
+      label={label}
+      value={formData[field] ?? ''}
+      onChange={handleNumberChange(field)}
+      onBlur={handleBlur(field)}
+      fullWidth
+      error={!!errors[field]}
+      helperText={errors[field]}
+      type="number"
+    />
+  );
+
   const renderStepContent = () => {
     switch (activeStep) {
       case 0: return (
@@ -503,7 +570,6 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
           <Typography variant="h6" gutterBottom>General Information</Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             {renderTextField('GR Number', 'gr_number')}
-            {renderTextField('Student ID', 'student_id')}
             {renderTextField('Roll Number', 'roll_number')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -536,9 +602,24 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
             {renderTextField('Nationality', 'nationality')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderTextField("Father's Name", 'father_name')}
-            {renderTextField("Mother's Name", 'mother_name')}
+            {renderTextField("Father's Name *", 'father_name')}
+            {renderTextField("Mother's Name *", 'mother_name')}
           </Stack>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            {renderTextField("Father's Occupation", 'father_occupation')}
+            {renderTextField("Mother's Occupation", 'mother_occupation')}
+          </Stack>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+            <TextField
+  fullWidth
+  label="Annual Income"
+  type="number"
+  value={formData.annual_income ?? ''}
+  onChange={handleChange('annual_income')}
+  onBlur={handleBlur('annual_income')}
+/>
+          </Stack>
+
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField
               select
@@ -551,24 +632,21 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
               helperText={errors.class_id}
             >
               {classOptions.map(cls => (
-                <MenuItem key={cls.id} value={cls.id.toString()}> {/* Ensure value is string */}
+                <MenuItem key={cls.id} value={cls.id.toString()}>
                   {cls.class_name}
                 </MenuItem>
               ))}
             </TextField>
             <TextField
               select
-              label="Section *"
-              value={formData.section}
+              label="Section"
+              value={formData.section || ''}
               onChange={handleChange('section')}
-              onBlur={handleBlur('section')}
               fullWidth
-              error={!!errors.section}
-              helperText={errors.section}
             >
               {sectionOptions.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
             </TextField>
-            {renderTextField('Academic Year *', 'academic_year')}
+            {renderTextField('Academic Year', 'academic_year')}
           </Stack>
         </Stack>
       );
@@ -578,13 +656,13 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             {renderTextField('Mobile Number *', 'mobile_number')}
             {renderTextField('Alternate Contact Number', 'alternate_contact_number')}
-            {renderTextField('Email', 'email')}
+            {renderTextField('Email *', 'email')}
           </Stack>
-          {renderTextField('Address *', 'address', 'text', 3)}
+          {renderTextField('Address', 'address', 'text', 3)}
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderTextField('City *', 'city')}
-            {renderTextField('State *', 'state')}
-            {renderTextField('Country *', 'country')}
+            {renderTextField('City', 'city')}
+            {renderTextField('State', 'state')}
+            {renderTextField('Country', 'country')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             {renderTextField('Postal Code', 'postal_code')}
@@ -599,7 +677,7 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
             <TextField
               select
               label="Blood Group"
-              value={formData.blood_group}
+              value={formData.blood_group || ''}
               onChange={handleChange('blood_group')}
               fullWidth
             >
@@ -608,7 +686,7 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
             <TextField
               select
               label="Status *"
-              value={formData.status}
+              value={formData.status || ''}
               onChange={handleChange('status')}
               onBlur={handleBlur('status')}
               fullWidth
@@ -622,16 +700,13 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
             <TextField
               fullWidth
               type="date"
-              label="Admission Date *"
-              value={formData.admission_date}
+              label="Admission Date"
+              value={formData.admission_date || ''}
               onChange={handleChange('admission_date')}
-              onBlur={handleBlur('admission_date')}
-              error={!!errors.admission_date}
-              helperText={errors.admission_date}
               InputLabelProps={{ shrink: true }}
             />
-            {renderTextField('Weight (kg)', 'weight_kg', 'number')}
-            {renderTextField('Height (cm)', 'height_cm', 'number')}
+            {renderNumberField('Weight (kg)', 'weight_kg')}
+            {renderNumberField('Height (cm)', 'height_cm')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             {renderTextField('HB Range', 'hb_range')}
@@ -642,169 +717,252 @@ const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'other'>('image
         </Stack>
       );
       case 3: return (
-  <Box sx={{ maxWidth: 800, margin: '0 auto' }}>
-    <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 'medium' }}>
-      Document Upload
-    </Typography>
-    
-    <Stack spacing={3}>
-      {[
-        ['Birth Certificate', 'birth_certificate', '.pdf,.jpg,.jpeg,.png', 'Required'],
-        ['Transfer Certificate', 'transfer_certificate', '.pdf,.jpg,.jpeg,.png', 'Required'],
-        ['Previous Academic Records', 'previous_academic_records', '.pdf,.jpg,.jpeg,.png', 'Required'],
-        ['Address Proof', 'address_proof', '.pdf,.jpg,.jpeg,.png', 'Required'],
-        ['ID Proof', 'id_proof', '.pdf,.jpg,.jpeg,.png', 'Required'],
-        ['Passport Photo', 'passport_photo', '.jpg,.jpeg,.png', 'Required'],
-        ['Medical Certificate', 'medical_certificate', '.pdf,.jpg,.jpeg,.png', 'Optional'],
-        ['Vaccination Certificate', 'vaccination_certificate', '.pdf,.jpg,.jpeg,.png', 'Optional'],
-        ['Other Documents', 'other_documents', '.pdf,.jpg,.jpeg,.png', 'Optional']
-      ].map(([label, field, accept, requirement], index) => (
-        <Paper key={field} elevation={1} sx={{ p: 2 }}>
-          <Stack spacing={1.5}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="subtitle1" fontWeight="medium">
-                {label}
-              </Typography>
-              <Chip 
-                label={requirement} 
-                size="small" 
-                color={requirement === 'Required' ? 'primary' : 'default'}
-                variant="outlined"
-              />
-            </Stack>
-            
-            <Box sx={{ mt: 1 }}>
-              {!formData[field as keyof Student] ? (
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  component="label"
-                  startIcon={<CloudUploadIcon />}
-                  sx={{
-                    py: 1.5,
-                    borderStyle: 'dashed',
-                    borderWidth: 1.5
-                  }}
-                >
-                  Click to upload
-                  <input
-                    type="file"
-                    hidden
-                    accept={accept}
-                    onChange={(e) => handleFileUpload(field as keyof Student, e.target.files)}
-                  />
-                </Button>
-              ) : (
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip
-                    label="Uploaded"
-                    color="success"
-                    variant="outlined"
-                    onDelete={() => setFormData(prev => ({ ...prev, [field]: '' }))}
-                    deleteIcon={<CancelIcon />}
-                  />
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => handlePreview(field as keyof Student)}
-                    startIcon={<VisibilityIcon />}
-                  >
-                    View
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setFormData(prev => ({ ...prev, [field]: '' }))}
-                    startIcon={<ReplayIcon />}
-                  >
-                    Replace
-                  </Button>
-                </Stack>
-              )}
-            </Box>
-            
-            <Typography variant="caption" color="text.secondary">
-              Accepted formats: {accept.replace(/,/g, ', ')}
-            </Typography>
-          </Stack>
-        </Paper>
-      ))}
-    </Stack>
+        <Box sx={{ maxWidth: 800, margin: '0 auto' }}>
+          <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 'medium' }}>
+            Document Upload
+          </Typography>
 
-    {/* Preview Modal */}
-    <Dialog
-      open={previewOpen}
-      onClose={() => setPreviewOpen(false)}
-      maxWidth="md"
-      fullWidth
-    >
-      <DialogTitle>Document Preview</DialogTitle>
-      <DialogContent>
-  {previewType === 'image' ? (
-    <img 
-      src={previewData} 
-      alt="Preview" 
-      style={{ width: '100%', height: 'auto' }}
-    />
-  ) : previewType === 'pdf' ? (
-    <iframe 
-      src={previewData}
-      width="100%"
-      height="600px"
-      title="PDF Preview"
-    />
-  ) : (
-    <Typography>Preview not available for this file type</Typography>
-  )}
-</DialogContent>
-      <DialogActions>
-        <Button onClick={() => setPreviewOpen(false)}>Close</Button>
-        <Button 
-          variant="contained" 
-          onClick={() => {
-            // Add download functionality here if needed
-            setPreviewOpen(false);
-          }}
-        >
-          Download
-        </Button>
-      </DialogActions>
-    </Dialog>
-  </Box>
-);
+          {isSubmitting && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Uploading documents...
+              </Typography>
+              {Object.entries(uploadProgress).map(([field, progress]) => (
+                <Box key={field} sx={{ mb: 2 }}>
+                  <Typography variant="caption" display="block" gutterBottom>
+                    {field}: {progress}%
+                  </Typography>
+                  <LinearProgress variant="determinate" value={progress} />
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          <Stack spacing={3}>
+            {[
+              ['Birth Certificate', 'birth_certificate', '.pdf,.jpg,.jpeg,.png', 'Required'],
+              ['Transfer Certificate', 'transfer_certificate', '.pdf,.jpg,.jpeg,.png', 'Required'],
+              ['Previous Academic Records', 'previous_academic_records', '.pdf,.jpg,.jpeg,.png', 'Required'],
+              ['Address Proof', 'address_proof', '.pdf,.jpg,.jpeg,.png', 'Required'],
+              ['ID Proof', 'id_proof', '.pdf,.jpg,.jpeg,.png', 'Required'],
+              ['Passport Photo', 'passport_photo', '.jpg,.jpeg,.png', 'Required'],
+              ['Medical Certificate', 'medical_certificate', '.pdf,.jpg,.jpeg,.png', 'Optional'],
+              ['Vaccination Certificate', 'vaccination_certificate', '.pdf,.jpg,.jpeg,.png', 'Optional'],
+              ['Other Documents', 'other_documents', '.pdf,.jpg,.jpeg,.png', 'Optional']
+            ].map(([label, field, accept, requirement]) => (
+              <Paper key={field} elevation={1} sx={{ p: 2 }}>
+                <Stack spacing={1.5}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography variant="subtitle1" fontWeight="medium">
+                      {label}
+                    </Typography>
+                    <Chip
+                      label={requirement}
+                      size="small"
+                      color={requirement === 'Required' ? 'primary' : 'default'}
+                      variant="outlined"
+                    />
+                  </Stack>
+
+                  <Box sx={{ mt: 1 }}>
+                    {!formData[field as keyof Student] ? (
+                      <Button
+                        fullWidth
+                        variant="outlined"
+                        component="label"
+                        startIcon={<CloudUploadIcon />}
+                        sx={{
+                          py: 1.5,
+                          borderStyle: 'dashed',
+                          borderWidth: 1.5
+                        }}
+                        disabled={isSubmitting}
+                      >
+                        Click to upload
+                        <input
+                          type="file"
+                          name={field}
+                          hidden
+                          accept={accept}
+                          onChange={(e) => handleFileUpload(field as keyof Student, e.target.files)}
+                        />
+                      </Button>
+                    ) : (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Chip
+                          label={fileObjects[field] ? "Uploaded" : "Previously Uploaded"}
+                          color={fileObjects[field] ? "success" : "default"}
+                          variant="outlined"
+                          onDelete={() => {
+                            setFormData(prev => ({ ...prev, [field]: undefined }));
+                            const newFileObjects = { ...fileObjects };
+                            delete newFileObjects[field];
+                            setFileObjects(newFileObjects);
+                          }}
+                          deleteIcon={<CancelIcon />}
+                        />
+                        {(fileObjects[field] || formData[field as keyof Student]) && (
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={() => handlePreview(field as keyof Student)}
+                            startIcon={<VisibilityIcon />}
+                            disabled={!fileObjects[field]}
+                          >
+                            View
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          variant="text"
+                          component="label"
+                          startIcon={<ReplayIcon />}
+                          disabled={isSubmitting}
+                        >
+                          Replace
+                          <input
+                            type="file"
+                            hidden
+                            accept={accept}
+                            onChange={(e) => handleFileUpload(field as keyof Student, e.target.files)}
+                          />
+                        </Button>
+                      </Stack>
+                    )}
+                  </Box>
+
+                  <Typography variant="caption" color="text.secondary">
+                    Accepted formats: {accept.replace(/,/g, ', ')}
+                  </Typography>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+
+          <Dialog
+            open={previewOpen}
+            onClose={() => setPreviewOpen(false)}
+            maxWidth="md"
+            fullWidth
+          >
+            <DialogTitle>Document Preview - {previewFileName}</DialogTitle>
+            <DialogContent>
+              {previewType === 'image' ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                  <img
+                    src={previewData}
+                    alt="Document Preview"
+                    style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+                  />
+                </Box>
+              ) : previewType === 'pdf' ? (
+                <Box sx={{ height: '70vh' }}>
+                  <iframe
+                    src={previewData}
+                    width="100%"
+                    height="100%"
+                    title="PDF Preview"
+                    style={{ border: 'none' }}
+                  />
+                </Box>
+              ) : (
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography variant="h6" color="textSecondary" gutterBottom>
+                    Preview not available for this file type
+                  </Typography>
+                  <Typography variant="body1">
+                    You can download the file to view it with an appropriate application.
+                  </Typography>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setPreviewOpen(false)}>Close</Button>
+              <Button
+                variant="contained"
+                onClick={handleDownload}
+                startIcon={<DownloadIcon />}
+                disabled={!previewData}
+              >
+                Download
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </Box>
+      );
       default: return null;
     }
   };
 
   return (
-    <>
-      <DashboardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Typography variant="h4" sx={{ flexGrow: 1 }}>
-            Student Management
-          </Typography>
-        </Box>
+  <>
+    <DashboardContent>
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Button 
+          startIcon={<ArrowBackIcon />} 
+          onClick={() => navigate('/dashboard/students')}
+          sx={{ mr: 2 }}
+        />
+        <Typography variant="h4" sx={{ flexGrow: 1 }}>
+          {editingStudent ? 'Edit Student' : 'Add New Student'}
+        </Typography>
+      </Box>
 
-        <Card sx={{ p: 4, mt: 4 }}>
-          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-            {['General Information', 'Contact Information', 'Health & Admission', 'Documents'].map(label => (
-              <Step key={label}><StepLabel>{label}</StepLabel></Step>
-            ))}
-          </Stepper>
-          {renderStepContent()}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-            <Button disabled={activeStep === 0} onClick={handleBack}>Back</Button>
-            {activeStep === 3
-              ? <Button variant="contained" onClick={handleSubmit} size="large">{editingStudent ? 'Update' : 'Submit'}</Button>
-              : <Button variant="contained" onClick={handleNext} size="large">Next</Button>}
-          </Box>
-          <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-              {snackbar.message}
-            </Alert>
-          </Snackbar>
-        </Card>
-      </DashboardContent>
-    </>
-  );
+      <Card sx={{ p: 4, mt: 4 }}>
+        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+          {['General Information', 'Contact Information', 'Health & Admission', 'Documents'].map((label, index) => (
+            <Step key={label}>
+              <StepLabel 
+                onClick={() => {
+                  if (editingStudent || studentId) {
+                    setActiveStep(index);
+                  }
+                }}
+                sx={{
+                  cursor: (editingStudent || studentId) ? 'pointer' : 'default',
+                  '& .MuiStepLabel-label': {
+                    fontWeight: activeStep === index ? 'bold' : 'normal',
+                    color: activeStep === index ? 'primary.main' : 'text.secondary',
+                  }
+                }}
+              >
+                {label}
+              </StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        {renderStepContent()}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+          <Button disabled={activeStep === 0 || isSubmitting} onClick={handleBack}>Back</Button>
+          {activeStep === 3
+            ? (
+              <Button
+                variant="contained"
+                onClick={handleSubmit}
+                size="large"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Saving...' : editingStudent ? 'Update' : 'Submit'}
+              </Button>
+            )
+            : (
+              <Button
+                variant="contained"
+                onClick={handleNext}
+                size="large"
+                disabled={isSubmitting}
+              >
+                Next
+              </Button>
+            )}
+        </Box>
+        <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Card>
+    </DashboardContent>
+  </>
+);
 }

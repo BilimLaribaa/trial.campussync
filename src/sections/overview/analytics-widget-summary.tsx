@@ -248,18 +248,19 @@ export function SchoolBanner({
       </Box>
 
       <SvgColor
-        src="/assets/background/shape-square.svg"
-        sx={{
-          top: 0,
-          left: -20,
-          width: 240,
-          zIndex: -1,
-          height: 240,
-          opacity: 0.24,
-          position: 'absolute',
-          color: `${color}.main`,
-        }}
-      />
+  src="/assets/background/shape-circle.svg"
+  sx={{
+    top: 0,
+    left: -20,
+    width: 240,
+    height: 240,
+    zIndex: -1,
+    opacity: 0.24,
+    position: 'absolute',
+    color: `${color}.main`,
+    borderRadius: '50%', // ensure round shape applies
+  }}
+/>
     </Card>
   );
 }

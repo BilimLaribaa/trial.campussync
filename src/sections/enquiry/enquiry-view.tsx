@@ -36,6 +36,7 @@ import { DashboardContent } from 'src/layouts/dashboard';
 import { Iconify } from 'src/components/iconify';
 import { Scrollbar } from 'src/components/scrollbar';
 
+import Config from '../../../config';
 import { EnquiryForm } from './enquiry-form';
 
 
@@ -123,13 +124,15 @@ export function EnquiryView() {
   };
 
   const handleEdit = () => {
-    if (selectedEnquiry) {
-      setEditingEnquiry(selectedEnquiry);
-      setOpen(true);
-    }
-    handleActionMenuClose();
-  };
+  if (selectedEnquiry) {
+    setEditingEnquiry(selectedEnquiry);
+    setOpen(true);
+    
+  }
+  handleActionMenuClose();
+};
 
+  
   const handleDelete = async () => {
     if (selectedEnquiry?.id) {
       if (window.confirm('Are you sure you want to delete this enquiry?')) {
@@ -186,10 +189,12 @@ export function EnquiryView() {
   };
 
   const handleSuccess = () => {
-    setSuccessMessage(editingEnquiry ? 'Enquiry updated successfully!' : 'Enquiry submitted successfully!');
-    setShowToast(true);
-    fetchEnquiries();
-  };
+  setSuccessMessage(editingEnquiry ? 'Enquiry updated successfully!' : 'Enquiry submitted successfully!');
+  setShowToast(true);
+  fetchEnquiries();
+  setOpen(false); // Optional: close dialog after save
+  setEditingEnquiry(null); // Optional: reset form state
+};
 
   const filtered = useMemo(() => {
     const sorted = [...enquiries].sort((a, b) => {
@@ -220,21 +225,28 @@ export function EnquiryView() {
   };
 
   const [mailOpen, setMailOpen] = useState(false);
-const [mailData, setMailData] = useState<{ to: string; subject: string; body: string }>({
-  to: '',
+const [mailData, setMailData] = useState<{
+  recipients: string[];
+  subject: string;
+  html: string;
+}>({
+  recipients: [],
   subject: '',
-  body: '',
+  html: '',
 });
 
 const handleMailClick = () => {
-  if (selectedEnquiry?.email) {
-    setMailData({
-      to: selectedEnquiry.email,
-      subject: '',
-      body: '',
-    });
-    setMailOpen(true);
-  }
+  const recipients = selectedEnquiry?.email
+    ? [selectedEnquiry.email] 
+    : [];
+
+  setMailData({
+    recipients,
+    subject: '',
+    html: '',
+  });
+
+  setMailOpen(true);
   handleActionMenuClose();
 };
 
@@ -382,11 +394,11 @@ const handleMailClick = () => {
           </ListItemIcon>
           <ListItemText>Delete</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleMailClick}>
+        <MenuItem onClick={handleEdit}>
   <ListItemIcon>
-    <Iconify icon="solar:mail-unread-bold" width={25} />
+    <Iconify icon="solar:pen-bold" width={20} />
   </ListItemIcon>
-  <ListItemText>Mail</ListItemText>
+  <ListItemText>Edit</ListItemText>
 </MenuItem>
       </Menu>
 
@@ -406,11 +418,16 @@ const handleMailClick = () => {
   <DialogContent>
     <Stack spacing={2} mt={1}>
       <TextField
-        label="To"
-        fullWidth
-        value={mailData.to}
-        disabled
-      />
+  label="To (comma separated emails)"
+  fullWidth
+  value={mailData.recipients.join(', ')}
+  onChange={(e) =>
+    setMailData({
+      ...mailData,
+      recipients: e.target.value.split(',').map(email => email.trim()),
+    })
+  }
+/>
       <TextField
         label="Subject"
         fullWidth
@@ -422,38 +439,56 @@ const handleMailClick = () => {
         fullWidth
         multiline
         minRows={4}
-        value={mailData.body}
-        onChange={(e) => setMailData({ ...mailData, body: e.target.value })}
+        value={mailData.html}
+        onChange={(e) => setMailData({ ...mailData, html: e.target.value })}
       />
     </Stack>
   </DialogContent>
   <DialogActions>
     <Button onClick={() => setMailOpen(false)}>Cancel</Button>
     <Button
-  variant="contained"
-  onClick={async () => {
-    try {
-      await invoke("send_mail", {
-        payload: {
-          to: mailData.to,
-          subject: mailData.subject,
-          body: mailData.body,
-        },
-      });
-      alert("Email sent successfully!");
-    } catch (error) {
-      console.error("Failed to send mail:", error);
-      alert("Failed to send email.");
-    } finally {
-      setMailOpen(false);
-    }
-  }}
->
-  Send
-</Button>
+      variant="contained"
+      onClick={async () => {
+        try {
+          const sender_email = "khan123personal@gmail.com";
+          const sender_password = "vebk uali wcep smqj";
+
+          const payload = {
+            sender_email,
+            sender_password,
+            recipients: mailData.recipients,
+            subject: mailData.subject,
+            html: mailData.html,
+          };
+
+          await fetch( Config.backend+'/mail/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+
+          alert("Email sent successfully!");
+        } catch (error) {
+          console.error("Failed to send mail:", error);
+          alert("Failed to send email.");
+        } finally {
+          setMailOpen(false);
+        }
+      }}
+    >
+      Send
+    </Button>
   </DialogActions>
 </Dialog>
-
+<EnquiryForm
+  open={open}
+  onClose={() => setOpen(false)}
+  onSuccess={handleSuccess}
+  editingEnquiry={editingEnquiry}
+/>
     </DashboardContent>
+    
   );
 }

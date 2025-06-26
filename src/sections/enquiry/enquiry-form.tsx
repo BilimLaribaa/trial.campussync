@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
 import Box from '@mui/material/Box';
@@ -42,6 +42,9 @@ export function EnquiryForm({ open, onClose, onSuccess, editingEnquiry }: Enquir
   const [phoneError, setPhoneError] = useState(false);
   const [emailError, setEmailError] = useState(false);
 
+
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -77,6 +80,8 @@ export function EnquiryForm({ open, onClose, onSuccess, editingEnquiry }: Enquir
       status: editingEnquiry?.status || 'new'
     };
 
+   
+
     try {
       if (editingEnquiry?.id) {
         await invoke('update_enquiry', { id: editingEnquiry.id, enquiry: formData });
@@ -93,6 +98,18 @@ export function EnquiryForm({ open, onClose, onSuccess, editingEnquiry }: Enquir
       setSubmitting(false);
     }
   };
+
+   useEffect(() => {
+  if (editingEnquiry) {
+    setStudentName(editingEnquiry.student_name || '');
+    setParentName(editingEnquiry.parent_name || '');
+    setPhone(editingEnquiry.phone || '');
+    setEmail(editingEnquiry.email || '');
+    setSource(editingEnquiry.source || 'In-person');
+  } else {
+    resetForm(); // optional: clean form when there's no editing
+  }
+}, [editingEnquiry])
 
   function resetForm() {
     setStudentName('');
@@ -163,6 +180,7 @@ export function EnquiryForm({ open, onClose, onSuccess, editingEnquiry }: Enquir
           </Button>
         </DialogActions>
       </form>
+      
     </Dialog>
   );
 } 

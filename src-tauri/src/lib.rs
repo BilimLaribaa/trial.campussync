@@ -104,10 +104,10 @@ pub fn run() {
             students::get_all_student4, // Get all students command
             students::get_student4,     // Update student command
             students::delete_student,   // delet student command
-            students::get_student_document,   // delet student command
+            // students::get_student_document,   // delet student command
             students::get_student_document_path,   // delet student command
-            students::save_student_document,   // delet student command
-            students::download_student_document,
+            students::get_student_document_base64,   // delet student command
+            students::upload_student_file,
             // Image commands
             image::save_image,
             image::get_image_path,
