@@ -39,6 +39,8 @@ import { Scrollbar } from 'src/components/scrollbar';
 import Config from '../../../config';
 import { EnquiryForm } from './enquiry-form';
 
+const EMAIL_STORAGE_KEY = 'app_email';
+const PASSWORD_STORAGE_KEY = 'app_password';
 
 type Enquiry = {
   id?: number;
@@ -106,7 +108,7 @@ export function EnquiryView() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Set<keyof Enquiry>>(
-    new Set([ 'parent_name', 'phone', 'email','status'])
+    new Set(['parent_name', 'phone', 'email', 'status'])
   );
   const [columnMenuAnchor, setColumnMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
@@ -124,15 +126,13 @@ export function EnquiryView() {
   };
 
   const handleEdit = () => {
-  if (selectedEnquiry) {
-    setEditingEnquiry(selectedEnquiry);
-    setOpen(true);
-    
-  }
-  handleActionMenuClose();
-};
+    if (selectedEnquiry) {
+      setEditingEnquiry(selectedEnquiry);
+      setOpen(true);
+    }
+    handleActionMenuClose();
+  };
 
-  
   const handleDelete = async () => {
     if (selectedEnquiry?.id) {
       if (window.confirm('Are you sure you want to delete this enquiry?')) {
@@ -189,12 +189,12 @@ export function EnquiryView() {
   };
 
   const handleSuccess = () => {
-  setSuccessMessage(editingEnquiry ? 'Enquiry updated successfully!' : 'Enquiry submitted successfully!');
-  setShowToast(true);
-  fetchEnquiries();
-  setOpen(false); // Optional: close dialog after save
-  setEditingEnquiry(null); // Optional: reset form state
-};
+    setSuccessMessage(editingEnquiry ? 'Enquiry updated successfully!' : 'Enquiry submitted successfully!');
+    setShowToast(true);
+    fetchEnquiries();
+    setOpen(false);
+    setEditingEnquiry(null);
+  };
 
   const filtered = useMemo(() => {
     const sorted = [...enquiries].sort((a, b) => {
@@ -225,29 +225,85 @@ export function EnquiryView() {
   };
 
   const [mailOpen, setMailOpen] = useState(false);
-const [mailData, setMailData] = useState<{
-  recipients: string[];
-  subject: string;
-  html: string;
-}>({
-  recipients: [],
-  subject: '',
-  html: '',
-});
-
-const handleMailClick = () => {
-  const recipients = selectedEnquiry?.email
-    ? [selectedEnquiry.email] 
-    : [];
-
-  setMailData({
-    recipients,
+  const [mailData, setMailData] = useState<{
+    recipients: string[];
+    subject: string;
+    html: string;
+  }>({
+    recipients: [],
     subject: '',
     html: '',
   });
 
-  setMailOpen(true);
-  handleActionMenuClose();
+  const handleMailClick = () => {
+    const sender_email = localStorage.getItem(EMAIL_STORAGE_KEY);
+    const sender_password = localStorage.getItem(PASSWORD_STORAGE_KEY);
+
+    if (!sender_email || !sender_password) {
+      alert("Please set your email and password in Settings first!");
+      return;
+    }
+
+    const recipients = selectedEnquiry?.email
+      ? [selectedEnquiry.email]
+      : [];
+
+    setMailData({
+      recipients,
+      subject: '',
+      html: '',
+    });
+
+    setMailOpen(true);
+    handleActionMenuClose();
+  };
+
+  const handleMailSend = async () => {
+  try {
+    const sender_email = localStorage.getItem(EMAIL_STORAGE_KEY);
+    const sender_password = localStorage.getItem(PASSWORD_STORAGE_KEY);
+
+    if (!sender_email || !sender_password) {
+      alert("Please set your email and password in Settings first!");
+      return;
+    }
+
+    console.log('Attempting to send mail to:', `${Config.backend}/mail/send`);
+    
+    const response = await fetch(`${Config.backend}/mail/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender_email,
+        sender_password,
+        recipients: mailData.recipients,
+        subject: mailData.subject,
+        html: mailData.html,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || `HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    setSuccessMessage(result.message || 'Email sent successfully!');
+    setShowToast(true);
+    setMailOpen(false);
+  } catch (error) {
+    console.error("Failed to send mail:", error);
+    let errorMessage = 'Failed to send email';
+    if (error instanceof TypeError) {
+      errorMessage = 'Failed to connect to server. Check your network connection.';
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    setSuccessMessage(errorMessage);
+    setShowToast(true);
+  }
 };
 
   return (
@@ -394,12 +450,12 @@ const handleMailClick = () => {
           </ListItemIcon>
           <ListItemText>Delete</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleEdit}>
-  <ListItemIcon>
-    <Iconify icon="solar:pen-bold" width={20} />
-  </ListItemIcon>
-  <ListItemText>Edit</ListItemText>
-</MenuItem>
+        <MenuItem onClick={handleMailClick}>
+          <ListItemIcon>
+            <Iconify icon="solar:mail-unread-bold" width={20} />
+          </ListItemIcon>
+          <ListItemText>Mail</ListItemText>
+        </MenuItem>
       </Menu>
 
       <Snackbar
@@ -414,81 +470,46 @@ const handleMailClick = () => {
       </Snackbar>
 
       <Dialog open={mailOpen} onClose={() => setMailOpen(false)} fullWidth maxWidth="sm">
-  <DialogTitle>Send Mail</DialogTitle>
-  <DialogContent>
-    <Stack spacing={2} mt={1}>
-      <TextField
-  label="To (comma separated emails)"
-  fullWidth
-  value={mailData.recipients.join(', ')}
-  onChange={(e) =>
-    setMailData({
-      ...mailData,
-      recipients: e.target.value.split(',').map(email => email.trim()),
-    })
-  }
-/>
-      <TextField
-        label="Subject"
-        fullWidth
-        value={mailData.subject}
-        onChange={(e) => setMailData({ ...mailData, subject: e.target.value })}
-      />
-      <TextField
-        label="Message"
-        fullWidth
-        multiline
-        minRows={4}
-        value={mailData.html}
-        onChange={(e) => setMailData({ ...mailData, html: e.target.value })}
-      />
-    </Stack>
-  </DialogContent>
-  <DialogActions>
-    <Button onClick={() => setMailOpen(false)}>Cancel</Button>
-    <Button
-      variant="contained"
-      onClick={async () => {
-        try {
-          const sender_email = "khan123personal@gmail.com";
-          const sender_password = "vebk uali wcep smqj";
-
-          const payload = {
-            sender_email,
-            sender_password,
-            recipients: mailData.recipients,
-            subject: mailData.subject,
-            html: mailData.html,
-          };
-
-          await fetch( Config.backend+'/mail/send', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-          });
-
-          alert("Email sent successfully!");
-        } catch (error) {
-          console.error("Failed to send mail:", error);
-          alert("Failed to send email.");
-        } finally {
-          setMailOpen(false);
-        }
-      }}
-    >
-      Send
-    </Button>
-  </DialogActions>
-</Dialog>
-<EnquiryForm
-  open={open}
-  onClose={() => setOpen(false)}
-  onSuccess={handleSuccess}
-  editingEnquiry={editingEnquiry}
-/>
+        <DialogTitle>Send Mail</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <TextField
+              label="To (comma separated emails)"
+              fullWidth
+              value={mailData.recipients.join(', ')}
+              onChange={(e) =>
+                setMailData({
+                  ...mailData,
+                  recipients: e.target.value.split(',').map(email => email.trim()),
+                })
+              }
+            />
+            <TextField
+              label="Subject"
+              fullWidth
+              value={mailData.subject}
+              onChange={(e) => setMailData({ ...mailData, subject: e.target.value })}
+            />
+            <TextField
+              label="Message"
+              fullWidth
+              multiline
+              minRows={4}
+              value={mailData.html}
+              onChange={(e) => setMailData({ ...mailData, html: e.target.value })}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMailOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleMailSend}
+          >
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
     </DashboardContent>
-    
   );
 }

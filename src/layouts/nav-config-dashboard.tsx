@@ -29,11 +29,6 @@ export const navData = [
     icon: icon('ic-user'),
   },
   {
-    title: 'user',
-    path: '/Dashboard/user',
-    icon: icon('ic-user'),
-  },
-  {
     title: 'Enquiry',
     path: '/Dashboard/enquiry',
     icon: icon('ic-user'),

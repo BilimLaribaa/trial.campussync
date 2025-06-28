@@ -16,6 +16,7 @@ import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
+import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
@@ -25,12 +26,17 @@ import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import { useTheme, Theme, PaletteColor } from '@mui/material/styles';
 import { Modal, FormControl, InputLabel, Select, Badge, RadioGroup, FormControlLabel, Radio, FormLabel } from '@mui/material';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { Iconify } from 'src/components/iconify';
+
+import Config from '../../../config';
 
 
 type Enquiry = {
@@ -141,6 +147,16 @@ export function EnquiryReview() {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false);
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
   const [calendarFollowUpEvents, setCalendarFollowUpEvents] = useState<any[]>([]);
+  const [mailOpen, setMailOpen] = useState(false);
+  const [mailData, setMailData] = useState<{
+    recipients: string[];
+    subject: string;
+    html: string;
+  }>({
+    recipients: [],
+    subject: '',
+    html: '',
+  });
 
   const fetchEnquiry = async () => {
     try {
@@ -172,6 +188,18 @@ export function EnquiryReview() {
       setFollowUps([]);
       setCalendarFollowUpEvents([]);
     }
+  };
+
+  const handleMailClick = () => {
+    const recipients = enquiry?.email ? [enquiry.email] : [];
+    
+    setMailData({
+      recipients,
+      subject: '',
+      html: '',
+    });
+
+    setMailOpen(true);
   };
 
   const fetchNotes = async () => {
@@ -287,7 +315,6 @@ export function EnquiryReview() {
 
     if (eventsOnThisDay.length > 0) {
       showBadge = true;
-      // Determine badge color based on event stati
       if (eventsOnThisDay.some(e => e.extendedProps?.status?.toLowerCase() === 'in progress')) {
         badgeColor = 'warning';
       } else if (eventsOnThisDay.some(e => e.extendedProps?.status?.toLowerCase() === 'new' || e.extendedProps?.status?.toLowerCase() === 'scheduled')) {
@@ -301,7 +328,6 @@ export function EnquiryReview() {
       }
     }
 
-    // Create tooltip content with enhanced styling
     const tooltipContent = eventsOnThisDay.length > 0 ? (
       <Box sx={{ p: 2, minWidth: 200 }}>
         <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.primary' }}>
@@ -425,27 +451,27 @@ export function EnquiryReview() {
     <DashboardContent>
       <Stack spacing={3}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-  <IconButton
-    onClick={() => navigate(-1)}
-    sx={{ mr: 2 }}
-    color="primary"
-  >
-    <Iconify icon="mingcute:close-line" width={24} />
-  </IconButton>
+          <IconButton
+            onClick={() => navigate(-1)}
+            sx={{ mr: 2 }}
+            color="primary"
+          >
+            <Iconify icon="mingcute:close-line" width={24} />
+          </IconButton>
 
-  <Typography variant="h4" sx={{ flexGrow: 1 }}>
-    Enquiry Review
-  </Typography>
+          <Typography variant="h4" sx={{ flexGrow: 1 }}>
+            Enquiry Review
+          </Typography>
 
-  <Button
-    variant="outlined"
-    color="inherit"
-    onClick={() => {}}
-    startIcon={<Iconify icon="solar:mail-unread-bold" width={30} sx={{ color: 'error.main' }} />}
-  >
-    Mail
-  </Button>
-</Box>
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={handleMailClick}
+            startIcon={<Iconify icon="solar:mail-unread-bold" width={30} sx={{ color: 'error.main' }} />}
+          >
+            Mail
+          </Button>
+        </Box>
 
         <Box sx={{ display: 'flex', gap: 3 }}>
           <Box sx={{ flex: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -781,6 +807,77 @@ export function EnquiryReview() {
           {successMessage}
         </Alert>
       </Snackbar>
+
+      <Dialog open={mailOpen} onClose={() => setMailOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Send Mail</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <TextField
+              label="To (comma separated emails)"
+              fullWidth
+              value={mailData.recipients.join(', ')}
+              onChange={(e) =>
+                setMailData({
+                  ...mailData,
+                  recipients: e.target.value.split(',').map(email => email.trim()),
+                })
+              }
+            />
+            <TextField
+              label="Subject"
+              fullWidth
+              value={mailData.subject}
+              onChange={(e) => setMailData({ ...mailData, subject: e.target.value })}
+            />
+            <TextField
+              label="Message"
+              fullWidth
+              multiline
+              minRows={4}
+              value={mailData.html}
+              onChange={(e) => setMailData({ ...mailData, html: e.target.value })}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMailOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              try {
+                const sender_email = "khan123personal@gmail.com";
+                const sender_password = "vebk uali wcep smqj";
+
+                const payload = {
+                  sender_email,
+                  sender_password,
+                  recipients: mailData.recipients,
+                  subject: mailData.subject,
+                  html: mailData.html,
+                };
+
+                await fetch(Config.backend + '/mail/send', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(payload),
+                });
+
+                setSuccessMessage("Email sent successfully!");
+                setShowToast(true);
+                setMailOpen(false);
+              } catch (error) {
+                console.error("Failed to send mail:", error);
+                setSuccessMessage(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                setShowToast(true);
+              }
+            }}
+          >
+            Send
+          </Button>
+        </DialogActions>
+      </Dialog>
     </DashboardContent>
   );
-} 
+}

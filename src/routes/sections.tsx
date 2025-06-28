@@ -22,7 +22,7 @@ export const Page404 = lazy(() => import('src/pages/page-not-found'));
 export const EnquiryPage = lazy(() => import('src/pages/enquiry'));
 export const EnquiryReviewPage = lazy(() => import('src/pages/enquiry-review'));
 export const BlogPage = lazy(() => import('src/pages/blog'));
-export const UserPage = lazy(() => import('src/pages/user'));
+// export const UserPage = lazy(() => import('src/pages/user'));
 export const ProductsPage = lazy(() => import('src/pages/products'));
 export const ClassPage = lazy(() => import('src/pages/class'));
 export const StaffPage = lazy(() => import('src/pages/staff'));
@@ -75,7 +75,7 @@ export const routesSection: RouteObject[] = [
       { path: 'students', element: <StudentPage /> },
       { path: 'student/add', element: <AddStudentView /> },
       { path: 'student/add/:id', element: <AddStudentView /> },
-      { path: 'user', element: <UserPage /> },
+      // { path: 'user', element: <UserPage /> },
       { path: 'enquiry', element: <EnquiryPage /> },
       { path: 'enquiry/:id', element: <EnquiryReviewPage /> },
       { path: 'class', element: <ClassPage /> },

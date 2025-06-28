@@ -23,12 +23,10 @@ import {
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
-
-
 export type StudentStep1 = {
   id?: number;
-  gr_number?: string;
-  roll_number?: string;
+  gr_number: string;
+  roll_number: string;
   full_name: string;
   dob: string;
   gender: string;
@@ -38,15 +36,14 @@ export type StudentStep1 = {
   father_occupation?: string;
   annual_income?: number;
   nationality?: string;
-  profile_image?: string;
+  profile_image: string;
   class_id: string;
   section?: string;
   academic_year?: string;
 };
 
-
 export type StudentStep2 = {
- id?: number;
+  id?: number;
   email: string;
   mobile_number?: string;
   alternate_contact_number?: string;
@@ -59,7 +56,7 @@ export type StudentStep2 = {
 };
 
 export type StudentStep3 = {
-   id?: number;
+  id?: number;
   blood_group?: string;
   status?: string;
   admission_date?: string;
@@ -86,26 +83,23 @@ export type StudentStep4 = {
 
 export type Student = StudentStep1 & StudentStep2 & StudentStep3 & StudentStep4;
 
-
-
 const INITIAL_VALUES: Student = {
- id: undefined,
+  id: undefined,
   gr_number: '',
   roll_number: '',
   full_name: '',
   dob: '',
   gender: '',
   mother_name: '',
-  mother_occupation: '',
+  mother_occupation: undefined,
   father_name: '',
-  father_occupation: '',
+  father_occupation: undefined,
   annual_income: undefined,
   nationality: 'Indian',
   profile_image: '',
   class_id: '',
   section: '',
   academic_year: new Date().getFullYear().toString(),
-
 
   email: '',
   mobile_number: '',
@@ -139,7 +133,7 @@ const INITIAL_VALUES: Student = {
 };
 
 const REQUIRED_FIELDS: Record<number, (keyof Student)[]> = {
-  0: ['full_name', 'dob', 'gender', 'class_id', 'mother_name', 'father_name', 'father_occupation', 'annual_income'],
+  0: ['gr_number', 'full_name', 'gender', 'class_id', 'mother_name', 'father_name'],
   1: ['email', 'mobile_number'],
   2: ['status', 'emergency_contact'],
   3: []
@@ -176,7 +170,18 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState<Student>(editingStudent || INITIAL_VALUES);
+  const [formData, setFormData] = useState<Student>(() => {
+    if (editingStudent) {
+      return {
+        ...editingStudent,
+        roll_number: editingStudent.roll_number || '',
+        dob: editingStudent.dob || '',
+        profile_image: editingStudent.profile_image || ''
+      };
+    }
+    return INITIAL_VALUES;
+  });
+  
   const [studentId, setStudentId] = useState<number | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof Student, string>>>({});
   const [activeStep, setActiveStep] = useState(0);
@@ -185,52 +190,48 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const [fileObjects, setFileObjects] = useState<Record<string, FileObject>>({});
 
   const handleFileUpload = async (field: keyof Student, files: FileList | null) => {
-  if (!files || files.length === 0) return;
-  
-  const file = files[0];
-  const extension = file.name.split('.').pop()?.toLowerCase() || '';
-  
-  try {
-    // Read file as bytes
-    const arrayBuffer = await file.arrayBuffer();
-    const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+    if (!files || files.length === 0) return;
     
-    // Upload file to backend
-    const fileName = await invoke<string>('upload_student_file', {
-      id: formData.id || studentId,
-      fileName: file.name,
-      fileBytes,
-    });
+    const file = files[0];
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
     
-    // Update form data with the returned filename
-    setFormData(prev => ({
-      ...prev,
-      [field]: fileName
-    }));
-    
-    // Create preview for UI
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        setFileObjects(prev => ({
-          ...prev,
-          [field]: { file, preview: result }
-        }));
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+      
+      const fileName = await invoke<string>('upload_student_file', {
+        id: formData.id || studentId,
+        fileName: file.name,
+        fileBytes,
+      });
+      
+      setFormData(prev => ({
+        ...prev,
+        [field]: fileName
+      }));
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          setFileObjects(prev => ({
+            ...prev,
+            [field]: { file, preview: result }
+          }));
+        }
+      };
+      
+      if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+        reader.readAsDataURL(file);
+      } else if (extension === 'pdf') {
+        reader.readAsDataURL(file);
       }
-    };
-    
-    if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-      reader.readAsDataURL(file);
-    } else if (extension === 'pdf') {
-      reader.readAsDataURL(file);
+      
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setSnackbar({ open: true, message: 'Failed to upload file', severity: 'error' });
     }
-    
-  } catch (error) {
-    console.error('Error uploading file:', error);
-    setSnackbar({ open: true, message: 'Failed to upload file', severity: 'error' });
-  }
-};
+  };
 
   const handlePreview = (field: keyof Student) => {
     const fileObj = fileObjects[field as string];
@@ -293,6 +294,9 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
               ...s4,
               id: numericId,
               class_id: s1.class_id.toString(),
+              roll_number: s1.roll_number || '',
+              dob: s1.dob || '',
+              profile_image: s1.profile_image || ''
             });
             setStudentId(numericId);
           } catch (err) {
@@ -313,8 +317,13 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
 
     if (REQUIRED_FIELDS[activeStep].includes(field) && !stringValue) {
       errorMessage = `${field} is required`;
-    } else if (stringValue) {
+    } else if (stringValue && REQUIRED_FIELDS[activeStep].includes(field)) {
       switch (field) {
+      case 'gr_number':
+    if (!/^\d+$/.test(stringValue)) {
+        errorMessage = 'GR Number must contain only numbers';
+    }
+    break;
         case 'full_name':
         case 'father_name':
         case 'mother_name':
@@ -332,12 +341,6 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
         case 'email':
           if (!/\S+@\S+\.\S+/.test(stringValue)) {
             errorMessage = 'Invalid email format';
-          }
-          break;
-        case 'dob':
-        case 'admission_date':
-          if (new Date(stringValue).toString() === 'Invalid Date') {
-            errorMessage = 'Invalid date';
           }
           break;
         case 'postal_code':
@@ -376,18 +379,18 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
         const newId = await invoke<number>('create_student1', {
           student: {
             id: formData.id || studentId || undefined,
-            gr_number: formData.gr_number || undefined,
-            roll_number: formData.roll_number || undefined,
+            gr_number: formData.gr_number,
+            roll_number: formData.roll_number || '',
             full_name: formData.full_name,
-            dob: formData.dob,
+            dob: formData.dob || '',
             gender: formData.gender,
             mother_name: formData.mother_name,
             mother_occupation: formData.mother_occupation || undefined,
             father_name: formData.father_name,
             father_occupation: formData.father_occupation || undefined,
             annual_income: formData.annual_income || undefined,
-            nationality: formData.nationality || undefined,
-            profile_image: formData.profile_image || undefined,
+            nationality: formData.nationality || 'Indian',
+            profile_image: formData.profile_image || '',
             class_id: formData.class_id,
             section: formData.section || undefined,
             academic_year: formData.academic_year || undefined,
@@ -453,70 +456,52 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const handleBack = () => setActiveStep(prev => prev - 1);
 
   const handleSubmit = async () => {
-  if (!validateStep()) return;
-  if (isSubmitting) return;
+    if (!validateStep()) return;
+    if (isSubmitting) return;
 
-  const finalId = formData.id;
-  if (!finalId) {
-    setSnackbar({ open: true, message: 'Missing student ID. Please complete Step 1.', severity: 'error' });
-    return;
-  }
+    const finalId = formData.id;
+    if (!finalId) {
+      setSnackbar({ open: true, message: 'Missing student ID. Please complete Step 1.', severity: 'error' });
+      return;
+    }
 
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
-  try {
-    // Prepare document data
-    const documentData = {
-      id: finalId,
-      birth_certificate: formData.birth_certificate || undefined,
-      transfer_certificate: formData.transfer_certificate || undefined,
-      previous_academic_records: formData.previous_academic_records || undefined,
-      address_proof: formData.address_proof || undefined,
-      id_proof: formData.id_proof || undefined,
-      passport_photo: formData.passport_photo || undefined,
-      medical_certificate: formData.medical_certificate || undefined,
-      vaccination_certificate: formData.vaccination_certificate || undefined,
-      other_documents: formData.other_documents || undefined,
-    };
+    try {
+      const documentData = {
+        id: finalId,
+        birth_certificate: formData.birth_certificate || undefined,
+        transfer_certificate: formData.transfer_certificate || undefined,
+        previous_academic_records: formData.previous_academic_records || undefined,
+        address_proof: formData.address_proof || undefined,
+        id_proof: formData.id_proof || undefined,
+        passport_photo: formData.passport_photo || undefined,
+        medical_certificate: formData.medical_certificate || undefined,
+        vaccination_certificate: formData.vaccination_certificate || undefined,
+        other_documents: formData.other_documents || undefined,
+      };
 
-    await invoke('create_student4', { student: documentData });
+      await invoke('create_student4', { student: documentData });
 
-    setSnackbar({ open: true, message: 'Student saved successfully!', severity: 'success' });
-    navigate('/dashboard/students', { replace: true });
-  } catch (error) {
-    console.error('Error saving student:', error);
-    setSnackbar({ open: true, message: 'Failed to save student.', severity: 'error' });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+      setSnackbar({ open: true, message: 'Student saved successfully!', severity: 'success' });
+      navigate('/dashboard/students', { replace: true });
+    } catch (error) {
+      console.error('Error saving student:', error);
+      setSnackbar({ open: true, message: 'Failed to save student.', severity: 'error' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
- const handleChange = (field: keyof Student) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-  let value: string | number | undefined = event.target.value;
+  const handleChange = (field: keyof Student) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    let value: string | number | undefined = event.target.value;
 
-  if (field === 'annual_income') {
-    // Convert to number if not empty, else undefined
-    value = value === '' ? undefined : parseFloat(value);
-  } else {
-    // For other fields, keep as string or undefined
-    value = value === '' ? undefined : value;
-  }
+    if (field === 'annual_income') {
+      value = value === '' ? undefined : parseFloat(value);
+    } else if (['father_occupation', 'mother_occupation', 'section', 'academic_year', 'nationality'].includes(field)) {
+      value = value === '' ? undefined : value;
+    }
 
-  setFormData((prev) => ({
-    ...prev,
-    [field]: value,
-  }));
-
-  if (touched[field]) {
-    setErrors((prev) => ({
-      ...prev,
-      [field]: validateField(field, value),
-    }));
-  }
-};
-
-  const handleNumberChange = (field: keyof Student) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value === '' ? undefined : parseFloat(event.target.value);
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -530,6 +515,29 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
     }
   };
 
+  const handleNumberChange = (field: keyof Student) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    let value: string | number | undefined = event.target.value;
+    
+    // Special handling for GR number to keep it as string
+    if (field === 'gr_number') {
+        value = value === '' ? '' : value; // Keep as string
+    } else {
+        value = value === '' ? undefined : parseFloat(value);
+    }
+    
+    setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+    }));
+
+    if (touched[field]) {
+        setErrors((prev) => ({
+            ...prev,
+            [field]: validateField(field, value),
+        }));
+    }
+};
+
   const handleBlur = (field: keyof Student) => () => {
     setTouched(prev => ({ ...prev, [field]: true }));
     setErrors(prev => ({ ...prev, [field]: validateField(field, formData[field]) }));
@@ -538,7 +546,7 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const renderTextField = (label: string, field: keyof Student, type = 'text', multiline: number | boolean = false) => (
     <TextField
       label={label}
-      value={formData[field] || ''}
+      value={formData[field] ?? ''}
       onChange={handleChange(field)}
       onBlur={handleBlur(field)}
       fullWidth
@@ -552,16 +560,17 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
 
   const renderNumberField = (label: string, field: keyof Student) => (
     <TextField
-      label={label}
-      value={formData[field] ?? ''}
-      onChange={handleNumberChange(field)}
-      onBlur={handleBlur(field)}
-      fullWidth
-      error={!!errors[field]}
-      helperText={errors[field]}
-      type="number"
+        label={label}
+        value={formData[field] ?? ''}
+        onChange={field === 'gr_number' ? handleChange(field) : handleNumberChange(field)}
+        onBlur={handleBlur(field)}
+        fullWidth
+        error={!!errors[field]}
+        helperText={errors[field]}
+        type={field === 'gr_number' ? 'text' : 'number'}
+        inputProps={field === 'gr_number' ? { pattern: '\\d*' } : {}}
     />
-  );
+);
 
   const renderStepContent = () => {
     switch (activeStep) {
@@ -569,7 +578,7 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
         <Stack spacing={2}>
           <Typography variant="h6" gutterBottom>General Information</Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderTextField('GR Number', 'gr_number')}
+            {renderNumberField('GR Number *', 'gr_number')}
             {renderTextField('Roll Number', 'roll_number')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
@@ -591,12 +600,9 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
             <TextField
               fullWidth
               type="date"
-              label="Date of Birth *"
-              value={formData.dob}
+              label="Date of Birth"
+              value={formData.dob || ''}
               onChange={handleChange('dob')}
-              onBlur={handleBlur('dob')}
-              error={!!errors.dob}
-              helperText={errors.dob}
               InputLabelProps={{ shrink: true }}
             />
             {renderTextField('Nationality', 'nationality')}
@@ -610,16 +616,8 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
             {renderTextField("Mother's Occupation", 'mother_occupation')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            <TextField
-  fullWidth
-  label="Annual Income"
-  type="number"
-  value={formData.annual_income ?? ''}
-  onChange={handleChange('annual_income')}
-  onBlur={handleBlur('annual_income')}
-/>
+            {renderNumberField("Annual Income", 'annual_income')}
           </Stack>
-
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField
               select
@@ -794,7 +792,7 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
                           color={fileObjects[field] ? "success" : "default"}
                           variant="outlined"
                           onDelete={() => {
-                            setFormData(prev => ({ ...prev, [field]: undefined }));
+                            setFormData(prev => ({ ...prev, [field]: '' }));
                             const newFileObjects = { ...fileObjects };
                             delete newFileObjects[field];
                             setFileObjects(newFileObjects);
@@ -895,74 +893,74 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   };
 
   return (
-  <>
-    <DashboardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        <Button 
-          startIcon={<ArrowBackIcon />} 
-          onClick={() => navigate('/dashboard/students')}
-          sx={{ mr: 2 }}
-        />
-        <Typography variant="h4" sx={{ flexGrow: 1 }}>
-          {editingStudent ? 'Edit Student' : 'Add New Student'}
-        </Typography>
-      </Box>
-
-      <Card sx={{ p: 4, mt: 4 }}>
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {['General Information', 'Contact Information', 'Health & Admission', 'Documents'].map((label, index) => (
-            <Step key={label}>
-              <StepLabel 
-                onClick={() => {
-                  if (editingStudent || studentId) {
-                    setActiveStep(index);
-                  }
-                }}
-                sx={{
-                  cursor: (editingStudent || studentId) ? 'pointer' : 'default',
-                  '& .MuiStepLabel-label': {
-                    fontWeight: activeStep === index ? 'bold' : 'normal',
-                    color: activeStep === index ? 'primary.main' : 'text.secondary',
-                  }
-                }}
-              >
-                {label}
-              </StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-        {renderStepContent()}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-          <Button disabled={activeStep === 0 || isSubmitting} onClick={handleBack}>Back</Button>
-          {activeStep === 3
-            ? (
-              <Button
-                variant="contained"
-                onClick={handleSubmit}
-                size="large"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Saving...' : editingStudent ? 'Update' : 'Submit'}
-              </Button>
-            )
-            : (
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                size="large"
-                disabled={isSubmitting}
-              >
-                Next
-              </Button>
-            )}
+    <>
+      <DashboardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Button 
+            startIcon={<ArrowBackIcon />} 
+            onClick={() => navigate('/dashboard/students')}
+            sx={{ mr: 2 }}
+          />
+          <Typography variant="h4" sx={{ flexGrow: 1 }}>
+            {editingStudent ? 'Edit Student' : 'Add New Student'}
+          </Typography>
         </Box>
-        <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Card>
-    </DashboardContent>
-  </>
-);
+
+        <Card sx={{ p: 4, mt: 4 }}>
+          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+            {['General Information', 'Contact Information', 'Health & Admission', 'Documents'].map((label, index) => (
+              <Step key={label}>
+                <StepLabel 
+                  onClick={() => {
+                    if (editingStudent || studentId) {
+                      setActiveStep(index);
+                    }
+                  }}
+                  sx={{
+                    cursor: (editingStudent || studentId) ? 'pointer' : 'default',
+                    '& .MuiStepLabel-label': {
+                      fontWeight: activeStep === index ? 'bold' : 'normal',
+                      color: activeStep === index ? 'primary.main' : 'text.secondary',
+                    }
+                  }}
+                >
+                  {label}
+                </StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+          {renderStepContent()}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Button disabled={activeStep === 0 || isSubmitting} onClick={handleBack}>Back</Button>
+            {activeStep === 3
+              ? (
+                <Button
+                  variant="contained"
+                  onClick={handleSubmit}
+                  size="large"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Saving...' : editingStudent ? 'Update' : 'Submit'}
+                </Button>
+              )
+              : (
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  size="large"
+                  disabled={isSubmitting}
+                >
+                  Next
+                </Button>
+              )}
+          </Box>
+          <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+            <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Card>
+      </DashboardContent>
+    </>
+  );
 }
