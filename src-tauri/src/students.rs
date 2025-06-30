@@ -56,10 +56,10 @@ pub struct Student {
     pub blood_group: Option<String>,
     pub status: Option<String>,
     pub admission_date: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_f32")]
-    pub weight_kg: Option<f32>,
-    #[serde(deserialize_with = "deserialize_optional_f32")]
-    pub height_cm: Option<f32>,
+    // #[serde(deserialize_with = "deserialize_optional_f32")]
+    pub weight_kg: Option<String>,
+    // #[serde(deserialize_with = "deserialize_optional_f32")]
+    pub height_cm: Option<String>,
     pub hb_range: Option<String>,
     pub medical_conditions: Option<String>,
     pub emergency_contact_person: Option<String>,
@@ -117,38 +117,16 @@ pub struct StudentStep3 {
     pub blood_group: Option<String>,
     pub status: Option<String>,
     pub admission_date: Option<String>,
-    #[serde(deserialize_with = "deserialize_optional_f32")]
-    pub weight_kg: Option<f32>,
-    #[serde(deserialize_with = "deserialize_optional_f32")]
-    pub height_cm: Option<f32>,
+    pub weight_kg: Option<String>,
+    
+    pub height_cm: Option<String>,
     pub hb_range: Option<String>,
     pub medical_conditions: Option<String>,
     pub emergency_contact_person: Option<String>,
     pub emergency_contact: Option<String>,
 }
 
-fn deserialize_optional_f32<'de, D>(deserializer: D) -> Result<Option<f32>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum StringOrFloat {
-        String(String),
-        Float(f32),
-    }
 
-    match StringOrFloat::deserialize(deserializer)? {
-        StringOrFloat::String(s) => {
-            if s.is_empty() {
-                Ok(None)
-            } else {
-                s.parse().map(Some).map_err(serde::de::Error::custom)
-            }
-        }
-        StringOrFloat::Float(f) => Ok(Some(f)),
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StudentStep4 {

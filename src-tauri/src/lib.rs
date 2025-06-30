@@ -5,7 +5,8 @@ mod image;
 mod migration;
 mod school;
 mod staff;
-mod students; // Import the students module
+mod students; 
+mod idcard; 
 
 use db::establish_connection;
 use log::error;
@@ -111,7 +112,9 @@ pub fn run() {
             // Image commands
             image::save_image,
             image::get_image_path,
-            image::delete_image
+            image::delete_image,
+            // idcard commands
+             idcard::get_all_students_for_idcards,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

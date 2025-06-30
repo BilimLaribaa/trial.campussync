@@ -47,6 +47,11 @@ export const navData = [
     title: 'Add Staff',
     path: '/Dashboard/staff/add',
     icon: icon('ic-user'),
+  },
+  {
+    title: 'ID CARD',
+    path: '/Dashboard/idcard',
+    icon: icon('ic-user'),
   }
 
 ];

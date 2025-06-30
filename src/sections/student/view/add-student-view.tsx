@@ -60,8 +60,8 @@ export type StudentStep3 = {
   blood_group?: string;
   status?: string;
   admission_date?: string;
-  weight_kg?: number;
-  height_cm?: number;
+  weight_kg?: string;
+  height_cm?: string;
   hb_range?: string;
   medical_conditions?: string;
   emergency_contact_person?: string;
@@ -114,8 +114,8 @@ const INITIAL_VALUES: Student = {
   blood_group: '',
   status: 'active',
   admission_date: '',
-  weight_kg: undefined,
-  height_cm: undefined,
+  weight_kg: '',
+  height_cm: '',
   hb_range: '',
   medical_conditions: '',
   emergency_contact_person: '',
@@ -135,7 +135,7 @@ const INITIAL_VALUES: Student = {
 const REQUIRED_FIELDS: Record<number, (keyof Student)[]> = {
   0: ['gr_number', 'full_name', 'gender', 'class_id', 'mother_name', 'father_name'],
   1: ['email', 'mobile_number'],
-  2: ['status', 'emergency_contact'],
+  2: [],
   3: []
 };
 
@@ -346,12 +346,6 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
         case 'postal_code':
           if (!/^\d{6}$/.test(stringValue)) {
             errorMessage = 'Postal code must be 6 digits';
-          }
-          break;
-        case 'weight_kg':
-        case 'height_cm':
-          if (isNaN(Number(stringValue))) {
-            errorMessage = 'Must be a number';
           }
           break;
         default:
@@ -703,8 +697,8 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
               onChange={handleChange('admission_date')}
               InputLabelProps={{ shrink: true }}
             />
-            {renderNumberField('Weight (kg)', 'weight_kg')}
-            {renderNumberField('Height (cm)', 'height_cm')}
+            {renderTextField('Weight (kg)', 'weight_kg')}
+            {renderTextField('Height (cm)', 'height_cm')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             {renderTextField('HB Range', 'hb_range')}

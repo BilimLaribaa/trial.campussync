@@ -1,4 +1,5 @@
-import axios from 'axios';
+import { invoke } from '@tauri-apps/api/core';
+import { appDataDir } from '@tauri-apps/api/path';
 import React, { useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
@@ -21,8 +22,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
-
-import Config from '../../config';
 
 interface School {
     id?: number;
@@ -99,44 +98,46 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-    const [imageFile, setImageFile] = useState<File | null>(null);
 
     useEffect(() => {
         if (open) {
             setLoading(true);
-            const schoolId = localStorage.getItem('school_id');
-            if (!schoolId) {
-                setError('No school ID found in localStorage.');
-                setLoading(false);
-                return;
-            }
-
-            axios.get<School>(`${Config.backend}/schools/${schoolId}`)
-                .then((response) => {
-                    const data = response.data;
-                    setForm({
-                        ...data,
-                        alternate_contact_number: data.alternate_contact_number || '',
-                        website: data.website || '',
-                        school_image: data.school_image || null,
-                    });
-
-                    if (data.school_image) {
-                        setPhotoPreview(`${Config.backend}/public/schools/${data.school_image}`);
-                    } else {
-                        setPhotoPreview('/assets/LOGO_SCHOOL.jpg');
+            invoke<School>('get_school_details')
+                .then(async (data) => {
+                    if (data) {
+                        setForm({
+                            ...data,
+                            // ensure defaults for optional fields
+                            alternate_contact_number: data.alternate_contact_number || '',
+                            website: data.website || '',
+                            school_image: data.school_image || null,
+                            is_active: data.is_active !== undefined ? data.is_active : true,
+                        });
+                        // Load image preview if available
+                        if (data.school_image) {
+                            try {
+                                const filename = data.school_image.split('/').pop();
+                                if (filename) {
+                                    const appData = await appDataDir();
+                                    const imagePath = await invoke<string>('get_image_path', { filename });
+                                    setPhotoPreview(`asset://${imagePath}`);
+                                }
+                            } catch (err) {
+                                console.error('Failed to load school image:', err);
+                            }
+                        } else {
+                            setPhotoPreview(null);
+                        }
                     }
                 })
-                .catch((err) => {
-                    setError(err.response?.data?.message || 'Failed to load school details.');
-                })
-                .then(() => setLoading(false));
+                .catch(() => setError('Failed to load school details.'))
+                .finally(() => setLoading(false));
         }
     }, [open]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value });
-        setError(null);
+        setError(null); // Clear error on input change
     };
 
     const handleSelectChange = (e: React.ChangeEvent<{ name?: string; value: unknown }>) => {
@@ -146,23 +147,39 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
         setError(null);
     };
 
-    const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPhotoPreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            try {
+                const filename = `${Date.now()}-${file.name}`;
+                const arrayBuffer = await file.arrayBuffer();
+                const bytes = Array.from(new Uint8Array(arrayBuffer));
+
+                await invoke('save_image', { filename, data: bytes });
+
+                setForm(prev => ({
+                    ...prev,
+                    school_image: filename
+                }));
+
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    setPhotoPreview(reader.result as string);
+                };
+                reader.readAsDataURL(file);
+            } catch (err) {
+                console.error('Failed to save image:', err);
+                setError('Failed to upload image. Please try again.');
+            }
         }
     };
 
-  const handleSave = async () => {
-    if (!form.school_name.trim()) {
-        setError('School name is required');
-        return;
-    }
+    const handleSave = async () => {
+        // Basic validation for required fields
+        if (!form.school_name.trim()) {
+            setError('School name is required');
+            return;
+        }
         if (!form.school_board.trim()) {
             setError('School board is required');
             return;
@@ -200,50 +217,18 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
             return;
         }
 
-       setLoading(true);
-    setError(null);
-    try {
-        const schoolId = localStorage.getItem('school_id');
-        if (!schoolId) {
-            throw new Error('No school ID found');
+        setLoading(true);
+        setError(null);
+        try {
+            await invoke('upsert_school_details', { schoolDetails: form });
+            onSaved(form);
+            onClose();
+        } catch (e) {
+            setError('Failed to save school details.');
+        } finally {
+            setLoading(false);
         }
-
-        const formData = new FormData();
-        
-        Object.keys(form).forEach(key => {
-            const value = form[key as keyof School];
-            if (value !== null && value !== undefined && key !== 'school_image') {
-                formData.append(key, String(value));
-            }
-        });
-
-        if (imageFile) {
-            formData.append('school_image', imageFile);
-        }
-
-        const response = await axios.put<School>(
-            `${Config.backend}/schools/${schoolId}`,
-            formData,
-            {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            }
-        );
-
-        // Fix: Pass response.data instead of response
-        onSaved(response.data);
-        onClose();
-    } catch (err: any) {
-        setError(
-            err.response?.data?.message || 
-            err.message || 
-            'An unexpected error occurred'
-        );
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
     return (
         <Dialog
@@ -293,6 +278,7 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
             <DialogContent>
                 <Box sx={{ p: 3 }}>
                     <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+                        {/* Photo Upload Section */}
                         <Box sx={{ gridColumn: 'span 2', mb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <label htmlFor="photo-upload">
@@ -334,6 +320,7 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
                             </Box>
                         </Box>
 
+                        {/* Form Fields */}
                         <Box>
                             <TextField
                                 fullWidth

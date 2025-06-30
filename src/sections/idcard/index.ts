@@ -1,0 +1,1 @@
+export { IdCardView } from './idcard-view';
