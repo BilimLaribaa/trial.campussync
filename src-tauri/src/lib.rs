@@ -93,22 +93,16 @@ pub fn run() {
             staff::delete_staff,
             // Student commands (updated)
             students::create_student1,  // Create student command
-            students::get_all_student1, // Get all students command
-            students::get_student1,     // Get student command
             students::create_student2,  // Get student command
-            students::get_all_student2, // Update student command
-            students::get_student2,     // Update student command
             students::create_student3,  // Get student command
-            students::get_all_student3, // feth student step 3 command
-            students::get_student3,     // Update student command
             students::create_student4,  // Create student command
-            students::get_all_student4, // Get all students command
-            students::get_student4,     // Update student command
             students::delete_student,   // delet student command
-            // students::get_student_document,   // delet student command
             students::get_student_document_path,   // delet student command
             students::get_student_document_base64,   // delet student command
             students::upload_student_file,
+            students::get_students,
+            // students::save_document_dialog,
+            // students::copy_file,
             // Image commands
             image::save_image,
             image::get_image_path,

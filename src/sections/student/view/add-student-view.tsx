@@ -23,28 +23,27 @@ import {
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
-export type StudentStep1 = {
-  id?: number;
+export type StudentCore = {
+  id?: number;  // Optional for creation
   gr_number: string;
-  roll_number: string;
+  roll_number?: string;
   full_name: string;
-  dob: string;
+  dob?: string;
   gender: string;
   mother_name: string;
-  mother_occupation?: string;
   father_name: string;
   father_occupation?: string;
+  mother_occupation?: string;
   annual_income?: number;
   nationality?: string;
-  profile_image: string;
+  profile_image?: string;
   class_id: string;
   section?: string;
   academic_year?: string;
 };
 
-export type StudentStep2 = {
-  id?: number;
-  email: string;
+export type StudentContact = {
+  email?: string;
   mobile_number?: string;
   alternate_contact_number?: string;
   address?: string;
@@ -55,21 +54,19 @@ export type StudentStep2 = {
   guardian_contact_info?: string;
 };
 
-export type StudentStep3 = {
-  id?: number;
+export type StudentHealth = {
   blood_group?: string;
   status?: string;
   admission_date?: string;
-  weight_kg?: string;
-  height_cm?: string;
+  weight_kg?: number;
+  height_cm?: number;
   hb_range?: string;
   medical_conditions?: string;
   emergency_contact_person?: string;
   emergency_contact?: string;
 };
 
-export type StudentStep4 = {
-  id?: number;
+export type StudentDocs = {
   birth_certificate?: string;
   transfer_certificate?: string;
   previous_academic_records?: string;
@@ -77,11 +74,55 @@ export type StudentStep4 = {
   id_proof?: string;
   passport_photo?: string;
   medical_certificate?: string;
-  other_documents?: string;
   vaccination_certificate?: string;
+  other_documents?: string;
 };
 
-export type Student = StudentStep1 & StudentStep2 & StudentStep3 & StudentStep4;
+export type Student = {
+  id?: number;
+  gr_number: string;
+  roll_number?: string;
+  full_name: string;
+  dob?: string;
+  gender: string;
+  mother_name: string;
+  father_name: string;
+  father_occupation?: string;
+  mother_occupation?: string;
+  annual_income?: number;
+  nationality?: string;
+  profile_image?: string;
+  class_id: string;
+  section?: string;
+  academic_year?: string;
+  email?: string;
+  mobile_number?: string;
+  alternate_contact_number?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postal_code?: string;
+  guardian_contact_info?: string;
+  blood_group?: string;
+  status?: string;
+  admission_date?: string;
+  weight_kg?: number;
+  height_cm?: number;
+  hb_range?: string;
+  medical_conditions?: string;
+  emergency_contact_person?: string;
+  emergency_contact?: string;
+  birth_certificate?: string;
+  transfer_certificate?: string;
+  previous_academic_records?: string;
+  address_proof?: string;
+  id_proof?: string;
+  passport_photo?: string;
+  medical_certificate?: string;
+  vaccination_certificate?: string;
+  other_documents?: string;
+};
 
 const INITIAL_VALUES: Student = {
   id: undefined,
@@ -114,8 +155,8 @@ const INITIAL_VALUES: Student = {
   blood_group: '',
   status: 'active',
   admission_date: '',
-  weight_kg: '',
-  height_cm: '',
+  weight_kg: undefined,
+  height_cm: undefined,
   hb_range: '',
   medical_conditions: '',
   emergency_contact_person: '',
@@ -152,10 +193,6 @@ type FileObject = {
   preview: string;
 };
 
-type StudentStringKeys = {
-  [K in keyof Student]: Student[K] extends string | undefined ? K : never
-}[keyof Student];
-
 export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<string>('');
@@ -188,6 +225,12 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [fileObjects, setFileObjects] = useState<Record<string, FileObject>>({});
+
+const [currentDocumentType, setCurrentDocumentType] = useState<keyof StudentDocs | null>(null);
+const [currentFile, setCurrentFile] = useState<File | null>(null);
+const [currentPreview, setCurrentPreview] = useState<string | null>(null);
+const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>({});
+
 
   const handleFileUpload = async (field: keyof Student, files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -280,25 +323,20 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
 
         if (!editingStudent && id) {
           try {
-            const [s1, s2, s3, s4] = await Promise.all([
-              invoke<StudentStep1>('get_student1', { id: numericId }),
-              invoke<StudentStep2>('get_student2', { id: numericId }),
-              invoke<StudentStep3>('get_student3', { id: numericId }),
-              invoke<StudentStep4>('get_student4', { id: numericId }),
-            ]);
-
-            setFormData({
-              ...s1,
-              ...s2,
-              ...s3,
-              ...s4,
-              id: numericId,
-              class_id: s1.class_id.toString(),
-              roll_number: s1.roll_number || '',
-              dob: s1.dob || '',
-              profile_image: s1.profile_image || ''
-            });
-            setStudentId(numericId);
+            const [student] = await invoke<Student[]>('get_students', { id: numericId });
+            
+            if (student) {
+              setFormData({
+                ...student,
+                class_id: student.class_id.toString(),
+                roll_number: student.roll_number || '',
+                dob: student.dob || '',
+                profile_image: student.profile_image || '',
+                weight_kg: student.weight_kg,
+                height_cm: student.height_cm
+              });
+              setStudentId(numericId);
+            }
           } catch (err) {
             console.error("Failed to fetch student for edit", err);
           }
@@ -319,11 +357,11 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
       errorMessage = `${field} is required`;
     } else if (stringValue && REQUIRED_FIELDS[activeStep].includes(field)) {
       switch (field) {
-      case 'gr_number':
-    if (!/^\d+$/.test(stringValue)) {
-        errorMessage = 'GR Number must contain only numbers';
-    }
-    break;
+        case 'gr_number':
+          if (!/^\d+$/.test(stringValue)) {
+            errorMessage = 'GR Number must contain only numbers';
+          }
+          break;
         case 'full_name':
         case 'father_name':
         case 'mother_name':
@@ -366,54 +404,60 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   };
 
   const handleNext = async () => {
-    if (!validateStep()) return;
+  if (!validateStep()) return;
 
-    if (activeStep === 0) {
-      try {
-        const newId = await invoke<number>('create_student1', {
-          student: {
-            id: formData.id || studentId || undefined,
-            gr_number: formData.gr_number,
-            roll_number: formData.roll_number || '',
-            full_name: formData.full_name,
-            dob: formData.dob || '',
-            gender: formData.gender,
-            mother_name: formData.mother_name,
-            mother_occupation: formData.mother_occupation || undefined,
-            father_name: formData.father_name,
-            father_occupation: formData.father_occupation || undefined,
-            annual_income: formData.annual_income || undefined,
-            nationality: formData.nationality || 'Indian',
-            profile_image: formData.profile_image || '',
-            class_id: formData.class_id,
-            section: formData.section || undefined,
-            academic_year: formData.academic_year || undefined,
-          },
-        });
-        setStudentId(newId);
-        setFormData((prev) => ({ ...prev, id: newId }));
-        setSnackbar({ open: true, message: 'General information saved!', severity: 'success' });
-        setActiveStep(1);
-      } catch (error) {
-        console.error('Error saving general info:', error);
-        setSnackbar({ open: true, message: 'Failed to save general info.', severity: 'error' });
+  if (activeStep === 0) {
+    try {
+      // Create a StudentCore object without the id field for new students
+      const coreData: StudentCore = {
+        gr_number: formData.gr_number,
+        roll_number: formData.roll_number || undefined,
+        full_name: formData.full_name,
+        dob: formData.dob || undefined,
+        gender: formData.gender,
+        mother_name: formData.mother_name,
+        father_name: formData.father_name,
+        father_occupation: formData.father_occupation || undefined,
+        mother_occupation: formData.mother_occupation || undefined,
+        annual_income: formData.annual_income || undefined,
+        nationality: formData.nationality || undefined,
+        profile_image: formData.profile_image || undefined,
+        class_id: formData.class_id,
+        section: formData.section || undefined,
+        academic_year: formData.academic_year || undefined,
+      };
+
+      // Only include id if we're editing
+      if (formData.id) {
+        coreData.id = formData.id;
       }
-    } else if (activeStep === 1 && (formData.id || studentId)) {
+
+      const newId = await invoke<number>('create_student1', { core: coreData });
+      
+      setStudentId(newId);
+      setFormData(prev => ({ ...prev, id: newId }));
+      setSnackbar({ open: true, message: 'General information saved!', severity: 'success' });
+      setActiveStep(1);
+    } catch (error) {
+      console.error('Error saving general info:', error);
+      setSnackbar({ open: true, message: 'Failed to save general info.', severity: 'error' });
+    }
+  } else if (activeStep === 1 && (formData.id || studentId)) {
       try {
         await invoke('create_student2', {
-          student: {
-            id: formData.id || studentId,
-            email: formData.email,
-            mobile_number: formData.mobile_number || undefined,
-            alternate_contact_number: formData.alternate_contact_number || undefined,
-            address: formData.address || undefined,
-            city: formData.city || undefined,
-            state: formData.state || undefined,
-            country: formData.country || undefined,
-            postal_code: formData.postal_code || undefined,
-            guardian_contact_info: formData.guardian_contact_info || undefined,
-          },
-        });
+  contact: {  // Change 'student' to 'contact'
+    email: formData.email,
+    mobile_number: formData.mobile_number || undefined,
+    alternate_contact_number: formData.alternate_contact_number || undefined,
+    address: formData.address || undefined,
+    city: formData.city || undefined,
+    state: formData.state || undefined,
+    country: formData.country || undefined,
+    postal_code: formData.postal_code || undefined,
+    guardian_contact_info: formData.guardian_contact_info || undefined,
+  },
+  id: formData.id || studentId,  // Keep id separate
+});
         setSnackbar({ open: true, message: 'Contact information saved!', severity: 'success' });
         setActiveStep(2);
       } catch (error) {
@@ -423,19 +467,19 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
     } else if (activeStep === 2 && (formData.id || studentId)) {
       try {
         await invoke('create_student3', {
-          student: {
-            id: formData.id || studentId,
-            blood_group: formData.blood_group || undefined,
-            status: formData.status || undefined,
-            admission_date: formData.admission_date || undefined,
-            weight_kg: formData.weight_kg || undefined,
-            height_cm: formData.height_cm || undefined,
-            hb_range: formData.hb_range || undefined,
-            medical_conditions: formData.medical_conditions || undefined,
-            emergency_contact_person: formData.emergency_contact_person || undefined,
-            emergency_contact: formData.emergency_contact || undefined,
-          },
-        });
+  health: {  // Change 'student' to 'health'
+    blood_group: formData.blood_group || undefined,
+    status: formData.status || undefined,
+    admission_date: formData.admission_date || undefined,
+    weight_kg: formData.weight_kg || undefined,
+    height_cm: formData.height_cm || undefined,
+    hb_range: formData.hb_range || undefined,
+    medical_conditions: formData.medical_conditions || undefined,
+    emergency_contact_person: formData.emergency_contact_person || undefined,
+    emergency_contact: formData.emergency_contact || undefined,
+  },
+  id: formData.id || studentId,  // Keep id separate
+});
         setSnackbar({ open: true, message: 'Health & admission info saved!', severity: 'success' });
         setActiveStep(3);
       } catch (error) {
@@ -450,42 +494,48 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const handleBack = () => setActiveStep(prev => prev - 1);
 
   const handleSubmit = async () => {
-    if (!validateStep()) return;
-    if (isSubmitting) return;
+  if (!validateStep()) return;
+  if (isSubmitting) return;
 
-    const finalId = formData.id;
-    if (!finalId) {
-      setSnackbar({ open: true, message: 'Missing student ID. Please complete Step 1.', severity: 'error' });
-      return;
-    }
+  const finalId = formData.id;
+  if (!finalId) {
+    setSnackbar({ open: true, message: 'Missing student ID. Please complete Step 1.', severity: 'error' });
+    return;
+  }
 
-    setIsSubmitting(true);
+  setIsSubmitting(true);
 
-    try {
-      const documentData = {
-        id: finalId,
-        birth_certificate: formData.birth_certificate || undefined,
-        transfer_certificate: formData.transfer_certificate || undefined,
-        previous_academic_records: formData.previous_academic_records || undefined,
-        address_proof: formData.address_proof || undefined,
-        id_proof: formData.id_proof || undefined,
-        passport_photo: formData.passport_photo || undefined,
-        medical_certificate: formData.medical_certificate || undefined,
-        vaccination_certificate: formData.vaccination_certificate || undefined,
-        other_documents: formData.other_documents || undefined,
-      };
+  try {
+    // Combine all document paths - both from formData and newly uploaded ones
+    const allDocuments = {
+      ...formData,  // includes any previously saved documents
+      ...uploadedDocuments  // newly uploaded documents take precedence
+    };
 
-      await invoke('create_student4', { student: documentData });
+    await invoke('create_student4', {
+      docs: {
+        birth_certificate: allDocuments.birth_certificate || undefined,
+        transfer_certificate: allDocuments.transfer_certificate || undefined,
+        previous_academic_records: allDocuments.previous_academic_records || undefined,
+        address_proof: allDocuments.address_proof || undefined,
+        id_proof: allDocuments.id_proof || undefined,
+        passport_photo: allDocuments.passport_photo || undefined,
+        medical_certificate: allDocuments.medical_certificate || undefined,
+        vaccination_certificate: allDocuments.vaccination_certificate || undefined,
+        other_documents: allDocuments.other_documents || undefined,
+      },
+      id: finalId,
+    });
 
-      setSnackbar({ open: true, message: 'Student saved successfully!', severity: 'success' });
-      navigate('/dashboard/students', { replace: true });
-    } catch (error) {
-      console.error('Error saving student:', error);
-      setSnackbar({ open: true, message: 'Failed to save student.', severity: 'error' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    setSnackbar({ open: true, message: 'Student saved successfully!', severity: 'success' });
+    navigate('/dashboard/students', { replace: true });
+  } catch (error) {
+    console.error('Error saving student:', error);
+    setSnackbar({ open: true, message: 'Failed to save student.', severity: 'error' });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleChange = (field: keyof Student) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     let value: string | number | undefined = event.target.value;
@@ -530,7 +580,7 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
             [field]: validateField(field, value),
         }));
     }
-};
+  };
 
   const handleBlur = (field: keyof Student) => () => {
     setTouched(prev => ({ ...prev, [field]: true }));
@@ -564,7 +614,7 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
         type={field === 'gr_number' ? 'text' : 'number'}
         inputProps={field === 'gr_number' ? { pattern: '\\d*' } : {}}
     />
-);
+  );
 
   const renderStepContent = () => {
     switch (activeStep) {
@@ -697,8 +747,8 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
               onChange={handleChange('admission_date')}
               InputLabelProps={{ shrink: true }}
             />
-            {renderTextField('Weight (kg)', 'weight_kg')}
-            {renderTextField('Height (cm)', 'height_cm')}
+            {renderNumberField('Weight (kg)', 'weight_kg')}
+            {renderNumberField('Height (cm)', 'height_cm')}
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             {renderTextField('HB Range', 'hb_range')}
@@ -709,179 +759,170 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
         </Stack>
       );
       case 3: return (
-        <Box sx={{ maxWidth: 800, margin: '0 auto' }}>
-          <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 'medium' }}>
-            Document Upload
-          </Typography>
+  <Box sx={{ maxWidth: 800, margin: '0 auto' }}>
+    <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 'medium' }}>
+      Document Upload
+    </Typography>
 
-          {isSubmitting && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Uploading documents...
-              </Typography>
-              {Object.entries(uploadProgress).map(([field, progress]) => (
-                <Box key={field} sx={{ mb: 2 }}>
-                  <Typography variant="caption" display="block" gutterBottom>
-                    {field}: {progress}%
-                  </Typography>
-                  <LinearProgress variant="determinate" value={progress} />
-                </Box>
-              ))}
+    <Stack spacing={3}>
+      <Paper elevation={1} sx={{ p: 2 }}>
+        <Stack spacing={2}>
+          <Typography variant="h6">Upload Documents</Typography>
+          
+          {/* Document Type Selector */}
+          <TextField
+            select
+            label="Select Document Type"
+            value={currentDocumentType || ''}
+            onChange={(e) => setCurrentDocumentType(e.target.value as keyof StudentDocs)}
+            fullWidth
+          >
+            {[
+              { value: 'birth_certificate', label: 'Birth Certificate' },
+              { value: 'transfer_certificate', label: 'Transfer Certificate' },
+              { value: 'previous_academic_records', label: 'Academic Records' },
+              { value: 'address_proof', label: 'Address Proof' },
+              { value: 'id_proof', label: 'ID Proof' },
+              { value: 'passport_photo', label: 'Passport Photo' },
+              { value: 'medical_certificate', label: 'Medical Certificate' },
+              { value: 'vaccination_certificate', label: 'Vaccination Certificate' },
+              { value: 'other_documents', label: 'Other Documents' },
+            ].map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          {/* File Upload */}
+          <Button
+            variant="outlined"
+            component="label"
+            startIcon={<CloudUploadIcon />}
+            fullWidth
+            disabled={!currentDocumentType}
+          >
+            Select File
+            <input
+              type="file"
+              hidden
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  const file = e.target.files[0];
+                  setCurrentFile(file);
+                  
+                  // Create preview
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    setCurrentPreview(event.target?.result as string);
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+            />
+          </Button>
+
+          {/* Preview */}
+          {currentPreview && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2">Preview:</Typography>
+              {currentPreview.startsWith('data:image') ? (
+                <img 
+                  src={currentPreview} 
+                  alt="Preview" 
+                  style={{ maxWidth: '100%', maxHeight: 200, marginTop: 8 }} 
+                />
+              ) : (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  PDF file selected (preview not available)
+                </Typography>
+              )}
             </Box>
           )}
 
-          <Stack spacing={3}>
-            {[
-              ['Birth Certificate', 'birth_certificate', '.pdf,.jpg,.jpeg,.png', 'Required'],
-              ['Transfer Certificate', 'transfer_certificate', '.pdf,.jpg,.jpeg,.png', 'Required'],
-              ['Previous Academic Records', 'previous_academic_records', '.pdf,.jpg,.jpeg,.png', 'Required'],
-              ['Address Proof', 'address_proof', '.pdf,.jpg,.jpeg,.png', 'Required'],
-              ['ID Proof', 'id_proof', '.pdf,.jpg,.jpeg,.png', 'Required'],
-              ['Passport Photo', 'passport_photo', '.jpg,.jpeg,.png', 'Required'],
-              ['Medical Certificate', 'medical_certificate', '.pdf,.jpg,.jpeg,.png', 'Optional'],
-              ['Vaccination Certificate', 'vaccination_certificate', '.pdf,.jpg,.jpeg,.png', 'Optional'],
-              ['Other Documents', 'other_documents', '.pdf,.jpg,.jpeg,.png', 'Optional']
-            ].map(([label, field, accept, requirement]) => (
-              <Paper key={field} elevation={1} sx={{ p: 2 }}>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="subtitle1" fontWeight="medium">
-                      {label}
-                    </Typography>
-                    <Chip
-                      label={requirement}
-                      size="small"
-                      color={requirement === 'Required' ? 'primary' : 'default'}
-                      variant="outlined"
-                    />
-                  </Stack>
+          {/* Upload Button */}
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (!currentDocumentType || !currentFile) return;
+              
+              try {
+                setIsSubmitting(true);
+                const arrayBuffer = await currentFile.arrayBuffer();
+                const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+                
+                const fileName = await invoke<string>('upload_student_file', {
+                  id: formData.id || studentId,
+                  fileName: currentFile.name,
+                  fileBytes,
+                });
+                
+                setUploadedDocuments(prev => ({
+                  ...prev,
+                  [currentDocumentType]: fileName
+                }));
+                
+                // Reset current selection
+                setCurrentFile(null);
+                setCurrentPreview(null);
+                setCurrentDocumentType(null);
+                
+                setSnackbar({ 
+                  open: true, 
+                  message: 'Document uploaded successfully!', 
+                  severity: 'success' 
+                });
+              } catch (error) {
+                console.error('Error uploading file:', error);
+                setSnackbar({ 
+                  open: true, 
+                  message: 'Failed to upload document', 
+                  severity: 'error' 
+                });
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            disabled={!currentFile || isSubmitting}
+            fullWidth
+            sx={{ mt: 2 }}
+          >
+            {isSubmitting ? 'Uploading...' : 'Upload Document'}
+          </Button>
+        </Stack>
+      </Paper>
 
-                  <Box sx={{ mt: 1 }}>
-                    {!formData[field as keyof Student] ? (
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        component="label"
-                        startIcon={<CloudUploadIcon />}
-                        sx={{
-                          py: 1.5,
-                          borderStyle: 'dashed',
-                          borderWidth: 1.5
-                        }}
-                        disabled={isSubmitting}
-                      >
-                        Click to upload
-                        <input
-                          type="file"
-                          name={field}
-                          hidden
-                          accept={accept}
-                          onChange={(e) => handleFileUpload(field as keyof Student, e.target.files)}
-                        />
-                      </Button>
-                    ) : (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip
-                          label={fileObjects[field] ? "Uploaded" : "Previously Uploaded"}
-                          color={fileObjects[field] ? "success" : "default"}
-                          variant="outlined"
-                          onDelete={() => {
-                            setFormData(prev => ({ ...prev, [field]: '' }));
-                            const newFileObjects = { ...fileObjects };
-                            delete newFileObjects[field];
-                            setFileObjects(newFileObjects);
-                          }}
-                          deleteIcon={<CancelIcon />}
-                        />
-                        {(fileObjects[field] || formData[field as keyof Student]) && (
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={() => handlePreview(field as keyof Student)}
-                            startIcon={<VisibilityIcon />}
-                            disabled={!fileObjects[field]}
-                          >
-                            View
-                          </Button>
-                        )}
-                        <Button
-                          size="small"
-                          variant="text"
-                          component="label"
-                          startIcon={<ReplayIcon />}
-                          disabled={isSubmitting}
-                        >
-                          Replace
-                          <input
-                            type="file"
-                            hidden
-                            accept={accept}
-                            onChange={(e) => handleFileUpload(field as keyof Student, e.target.files)}
-                          />
-                        </Button>
-                      </Stack>
-                    )}
-                  </Box>
-
-                  <Typography variant="caption" color="text.secondary">
-                    Accepted formats: {accept.replace(/,/g, ', ')}
-                  </Typography>
-                </Stack>
-              </Paper>
+      {/* Uploaded Documents List */}
+      <Paper elevation={1} sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Uploaded Documents</Typography>
+        {Object.keys(uploadedDocuments).length === 0 ? (
+          <Typography variant="body2">No documents uploaded yet</Typography>
+        ) : (
+          <Stack spacing={1}>
+            {Object.entries(uploadedDocuments).map(([key, value]) => (
+              <Box key={key} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body1">
+                  {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                </Typography>
+                <Chip 
+                  label="Uploaded" 
+                  color="success" 
+                  size="small"
+                  onDelete={() => {
+                    const newUploads = {...uploadedDocuments};
+                    delete newUploads[key as keyof StudentDocs];
+                    setUploadedDocuments(newUploads);
+                  }}
+                />
+              </Box>
             ))}
           </Stack>
-
-          <Dialog
-            open={previewOpen}
-            onClose={() => setPreviewOpen(false)}
-            maxWidth="md"
-            fullWidth
-          >
-            <DialogTitle>Document Preview - {previewFileName}</DialogTitle>
-            <DialogContent>
-              {previewType === 'image' ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <img
-                    src={previewData}
-                    alt="Document Preview"
-                    style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
-                  />
-                </Box>
-              ) : previewType === 'pdf' ? (
-                <Box sx={{ height: '70vh' }}>
-                  <iframe
-                    src={previewData}
-                    width="100%"
-                    height="100%"
-                    title="PDF Preview"
-                    style={{ border: 'none' }}
-                  />
-                </Box>
-              ) : (
-                <Box sx={{ p: 3, textAlign: 'center' }}>
-                  <Typography variant="h6" color="textSecondary" gutterBottom>
-                    Preview not available for this file type
-                  </Typography>
-                  <Typography variant="body1">
-                    You can download the file to view it with an appropriate application.
-                  </Typography>
-                </Box>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setPreviewOpen(false)}>Close</Button>
-              <Button
-                variant="contained"
-                onClick={handleDownload}
-                startIcon={<DownloadIcon />}
-                disabled={!previewData}
-              >
-                Download
-              </Button>
-            </DialogActions>
-          </Dialog>
-        </Box>
-      );
+        )}
+      </Paper>
+    </Stack>
+  </Box>
+);
       default: return null;
     }
   };

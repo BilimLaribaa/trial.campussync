@@ -12,38 +12,68 @@ import {
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
-type StudentBasic = {
-  id: number; gr_number: string; roll_number: string; full_name: string; dob: string; gender: string;
-  mother_name: string; mother_occupation?: string; father_name: string; father_occupation?: string; annual_income?: number;
-  nationality: string; profile_image: string; class_id: string; section?: string; academic_year?: string;
+type Student = {
+  id: number;
+  gr_number: string;
+  roll_number?: string;
+  full_name: string;
+  dob?: string;
+  gender: string;
+  mother_name: string;
+  father_name: string;
+  father_occupation?: string;
+  mother_occupation?: string;
+  annual_income?: number;
+  nationality?: string;
+  profile_image?: string;
+  class_id: string;
+  section?: string;
+  academic_year?: string;
+  email?: string;
+  mobile_number?: string;
+  alternate_contact_number?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postal_code?: string;
+  guardian_contact_info?: string;
+  blood_group?: string;
+  status?: string;
+  admission_date?: string;
+  weight_kg?: number;
+  height_cm?: number;
+  hb_range?: string;
+  medical_conditions?: string;
+  emergency_contact_person?: string;
+  emergency_contact?: string;
+  birth_certificate?: string;
+  transfer_certificate?: string;
+  previous_academic_records?: string;
+  address_proof?: string;
+  id_proof?: string;
+  passport_photo?: string;
+  medical_certificate?: string;
+  vaccination_certificate?: string;
+  other_documents?: string;
 };
 
-type StudentContact = {
-  id: number; email: string; mobile_number: string; alternate_contact_number: string; address: string;
-  city: string; state: string; country: string; postal_code: string; guardian_contact_info: string;
+type DocumentUrls = {
+  birth_certificate?: string;
+  transfer_certificate?: string;
+  previous_academic_records?: string;
+  address_proof?: string;
+  id_proof?: string;
+  passport_photo?: string;
+  medical_certificate?: string;
+  vaccination_certificate?: string;
+  other_documents?: string;
 };
-
-type StudentHealth = {
-  id: number; blood_group: string; status: string; admission_date: string; weight_kg: number;
-  height_cm: number; hb_range: string; medical_conditions: string; emergency_contact_person: string; emergency_contact: string;
-  vaccination_certificate: string;
-};
-
-type StudentDocuments = {
-  id: number; birth_certificate: string; transfer_certificate: string; previous_academic_records: string;
-  address_proof: string; id_proof: string; passport_photo: string; medical_certificate: string; vaccination_certificate: string;
-  other_documents: string;
-};
-
-type DocumentUrls = Omit<StudentDocuments, 'id'>;
 
 export function StudentView() {
   const navigate = useNavigate();
   const infoRef = useRef<HTMLDivElement>(null);
-  const [basicInfo, setBasicInfo] = useState<StudentBasic[]>([]);
-  const [contactInfo, setContactInfo] = useState<StudentContact[]>([]);
-  const [healthInfo, setHealthInfo] = useState<StudentHealth[]>([]);
-  const [documentsInfo, setDocumentsInfo] = useState<StudentDocuments[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
   const [documentUrls, setDocumentUrls] = useState<Record<number, DocumentUrls>>({});
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [infoTab, setInfoTab] = useState<'general' | 'contact' | 'health' | 'documents'>('general');
@@ -60,12 +90,12 @@ export function StudentView() {
 
   const handleDelete = async () => {
     if (!selectedStudentId) return;
-    const student = basicInfo.find(s => s.id === selectedStudentId);
+    const student = students.find(s => s.id === selectedStudentId);
     if (!student || !window.confirm(`Are you sure you want to delete ${student.full_name}?`)) return;
     try {
       await invoke('delete_student', { id: selectedStudentId });
-      const updated = basicInfo.filter((s) => s.id !== selectedStudentId);
-      setBasicInfo(updated);
+      const updated = students.filter((s) => s.id !== selectedStudentId);
+      setStudents(updated);
       setSelectedStudentId(updated[0]?.id || null);
     } catch (err) {
       console.error('Failed to delete student:', err);
@@ -73,25 +103,25 @@ export function StudentView() {
     }
   };
 
-  const getDocumentPaths = async (documents: StudentDocuments, studentId: number): Promise<DocumentUrls> => {
-    const paths: Partial<DocumentUrls> = {};
+  const getDocumentPaths = async (student: Student): Promise<DocumentUrls> => {
+    const paths: DocumentUrls = {};
     const docKeys = ['birth_certificate', 'transfer_certificate', 'previous_academic_records', 'address_proof',
       'id_proof', 'passport_photo', 'medical_certificate', 'vaccination_certificate', 'other_documents'] as const;
 
     for (const key of docKeys) {
-      const filename = documents[key];
+      const filename = student[key];
       if (filename) {
         try {
           paths[key] = key === 'passport_photo'
-            ? await invoke<string>('get_student_document_base64', { fileName: filename, studentId })
-            : await invoke<string>('get_student_document_path', { fileName: filename, studentId }) || '';
+            ? await invoke<string>('get_student_document_base64', { fileName: filename })
+            : await invoke<string>('get_student_document_path', { fileName: filename }) || '';
         } catch (err) {
           console.error(`Failed to get document ${key}:`, err);
           paths[key] = '';
         }
       }
     }
-    return paths as DocumentUrls;
+    return paths;
   };
 
   const handlePreview = async (filepath: string, filename: string) => {
@@ -100,7 +130,7 @@ export function StudentView() {
       setDownloadStatus(null);
       const extension = filename.split('.').pop()?.toLowerCase();
       const fileType = ['jpg', 'jpeg', 'png', 'gif'].includes(extension || '') ? 'image' : extension === 'pdf' ? 'pdf' : 'unsupported';
-      const fileUrl = await invoke<string>('get_student_document_base64', { fileName: filename, studentId: selectedStudentId });
+      const fileUrl = await invoke<string>('get_student_document_base64', { fileName: filename });
       setPreviewType(fileType);
       setPreviewData(fileUrl);
       setPreviewFileName(filename);
@@ -114,7 +144,7 @@ export function StudentView() {
   const handleDownload = async (filepath: string, filename: string) => {
     if (!selectedStudentId) return;
     try {
-      const dataUrl = await invoke<string>('get_student_document_base64', { fileName: filename, studentId: selectedStudentId });
+      const dataUrl = await invoke<string>('get_student_document_base64', { fileName: filename });
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = filename;
@@ -128,9 +158,9 @@ export function StudentView() {
     }
   };
 
-  const renderDocumentLink = (label: string, documentKey: keyof Omit<StudentDocuments, 'id'>) => {
+  const renderDocumentLink = (label: string, documentKey: keyof DocumentUrls) => {
     if (documentsLoading) return <Typography variant="body2">Loading...</Typography>;
-    const filename = selectedDocumentsInfo?.[documentKey];
+    const filename = selectedStudent?.[documentKey];
     if (!filename) return <Typography variant="body2">No document uploaded</Typography>;
     const filepath = selectedStudentId ? documentUrls[selectedStudentId]?.[documentKey] : '';
     if (!filepath) return <Typography variant="body2">Document not found</Typography>;
@@ -151,34 +181,25 @@ export function StudentView() {
       setLoading(true);
       setError(null);
       try {
-        const [classes, basicData, contactData, healthData, documentsData] = await Promise.all([
+        const [classes, studentsData] = await Promise.all([
           invoke<{ id: string, class_name: string }[]>('get_all_classes'),
-          invoke<[number, StudentBasic][]>('get_all_student1'),
-          invoke<[number, StudentContact][]>('get_all_student2'),
-          invoke<[number, StudentHealth][]>('get_all_student3'),
-          invoke<[number, StudentDocuments][]>('get_all_student4')
+          invoke<Student[]>('get_students', { id: null })
         ]);
+console.log(studentsData);
 
         const newClassMap = classes.reduce((acc, cls) => ({ ...acc, [cls.id]: cls.class_name }), {} as Record<string, string>);
-        const transformedBasic = basicData.map(([id, data]) => ({ ...data, id }));
-        const transformedContact = contactData.map(([id, data]) => ({ ...data, id }));
-        const transformedHealth = healthData.map(([id, data]) => ({ ...data, id }));
-        const transformedDocuments = documentsData.map(([id, data]) => ({ ...data, id }));
-
-        if (transformedDocuments.length > 0) {
+        
+        if (studentsData.length > 0) {
           const urls: Record<number, DocumentUrls> = {};
-          for (const doc of transformedDocuments) {
-            urls[doc.id] = await getDocumentPaths(doc, doc.id);
+          for (const student of studentsData) {
+            urls[student.id] = await getDocumentPaths(student);
           }
           setDocumentUrls(urls);
         }
 
         setClassMap(newClassMap);
-        setBasicInfo(transformedBasic);
-        setContactInfo(transformedContact);
-        setHealthInfo(transformedHealth);
-        setDocumentsInfo(transformedDocuments);
-        setSelectedStudentId(transformedBasic[0]?.id || null);
+        setStudents(studentsData);
+        setSelectedStudentId(studentsData[0]?.id || null);
       } catch (err) {
         console.error('Failed to fetch data:', err);
         setError('Failed to load student data');
@@ -194,9 +215,9 @@ export function StudentView() {
       if (selectedStudentId) {
         setDocumentsLoading(true);
         try {
-          const documents = documentsInfo.find(d => d.id === selectedStudentId);
-          if (documents) {
-            const urls = await getDocumentPaths(documents, selectedStudentId);
+          const student = students.find(s => s.id === selectedStudentId);
+          if (student) {
+            const urls = await getDocumentPaths(student);
             setDocumentUrls(prev => ({ ...prev, [selectedStudentId]: urls }));
           }
         } catch (err) {
@@ -208,16 +229,13 @@ export function StudentView() {
       }
     };
     updateDocumentUrls();
-  }, [selectedStudentId, documentsInfo]);
+  }, [selectedStudentId, students]);
 
   useEffect(() => {
     if (infoRef.current) setCardHeight(infoRef.current.clientHeight + 240);
   }, [selectedStudentId, infoTab]);
 
-  const selectedBasicInfo = basicInfo.find(s => s.id === selectedStudentId);
-  const selectedContactInfo = contactInfo.find(s => s.id === selectedStudentId);
-  const selectedHealthInfo = healthInfo.find(s => s.id === selectedStudentId);
-  const selectedDocumentsInfo = documentsInfo.find(s => s.id === selectedStudentId);
+  const selectedStudent = students.find(s => s.id === selectedStudentId);
 
   const InfoRow = ({ label, value }: { label: string; value?: string | null }) => (
     <Stack direction="row" justifyContent="space-between">
@@ -226,7 +244,7 @@ export function StudentView() {
     </Stack>
   );
 
-  const InfoRowWithLink = ({ label, documentKey }: { label: string; documentKey: keyof Omit<StudentDocuments, 'id'> }) => (
+  const InfoRowWithLink = ({ label, documentKey }: { label: string; documentKey: keyof DocumentUrls }) => (
     <Stack direction="row" justifyContent="space-between" alignItems="center">
       <Typography variant="body2" fontWeight={500}>{label}</Typography>
       {renderDocumentLink(label, documentKey)}
@@ -267,9 +285,9 @@ export function StudentView() {
           <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: cardHeight || 600 }}>
             <TextField fullWidth size="small" label="Search Students" sx={{ mb: 2 }} />
             <Box sx={{ overflowY: 'auto', maxHeight: cardHeight ? cardHeight - 80 : 520 }}>
-              {basicInfo.length > 0 ? (
+              {students.length > 0 ? (
                 <List>
-                  {basicInfo.map((s) => (
+                  {students.map((s) => (
                     <ListItem disablePadding key={s.id}>
                       <ListItemButton selected={selectedStudentId === s.id} onClick={() => setSelectedStudentId(s.id)}>
                         <ListItemAvatar>
@@ -322,8 +340,8 @@ export function StudentView() {
                   height: 120,
                   border: '4px solid white',
                   borderRadius: '50%',
-                  boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)', // optional: adds slight depth
-                  backgroundColor: 'white', // to match border bg
+                  boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)',
+                  backgroundColor: 'white',
                   position: 'absolute',
                   top: -65,
                   left: 24
@@ -331,67 +349,67 @@ export function StudentView() {
               />
               <Box sx={{ pl: 16, pt: 2 }}>
                 <Typography variant="subtitle1" fontWeight={600}>
-                  {selectedBasicInfo ? `${selectedBasicInfo.full_name}, Class: ${classMap[selectedBasicInfo.class_id] || `Class ${selectedBasicInfo.class_id}`}, Section: ${selectedBasicInfo.section}` : "No student selected"}
+                  {selectedStudent ? `${selectedStudent.full_name}, Class: ${classMap[selectedStudent.class_id] || `Class ${selectedStudent.class_id}`}, Section: ${selectedStudent.section}` : "No student selected"}
                 </Typography>
-                {selectedBasicInfo && <Typography variant="body2">GR No: {selectedBasicInfo.gr_number} | Roll No: {selectedBasicInfo.roll_number}</Typography>}
+                {selectedStudent && <Typography variant="body2">GR No: {selectedStudent.gr_number} | Roll No: {selectedStudent.roll_number}</Typography>}
               </Box>
             </Box>
 
             <Box maxWidth={560} mx="auto" mt={-2} px={3} pb={3} ref={infoRef}>
-              {selectedBasicInfo ? (
+              {selectedStudent ? (
                 <>
                   {infoTab === 'general' && (
                     <Stack spacing={1.25} pt={1}>
                       <Typography fontWeight={600} mb={1} fontSize={16}>General Information</Typography>
-                      <InfoRow label="GR Number" value={selectedBasicInfo.gr_number} />
-                      <InfoRow label="Roll Number" value={selectedBasicInfo.roll_number} />
-                      <InfoRow label="Full Name" value={selectedBasicInfo.full_name} />
-                      <InfoRow label="Date of Birth" value={selectedBasicInfo.dob} />
-                      <InfoRow label="Gender" value={selectedBasicInfo.gender} />
-                      <InfoRow label="Mother's Name" value={selectedBasicInfo.mother_name} />
-                      <InfoRow label="Mother's Occupation" value={selectedBasicInfo.mother_occupation} />
-                      <InfoRow label="Father's Name" value={selectedBasicInfo.father_name} />
-                      <InfoRow label="Father's Occupation" value={selectedBasicInfo.father_occupation} />
-                      <InfoRow label="Annual Income" value={selectedBasicInfo.annual_income !== undefined ? `$${selectedBasicInfo.annual_income}` : '-'} />
-                      <InfoRow label="Nationality" value={selectedBasicInfo.nationality} />
-                      <InfoRow label="Class" value={classMap[selectedBasicInfo.class_id] || `Class ${selectedBasicInfo.class_id}`} />
-                      <InfoRow label="Section" value={selectedBasicInfo.section} />
-                      <InfoRow label="Academic Year" value={selectedBasicInfo.academic_year} />
+                      <InfoRow label="GR Number" value={selectedStudent.gr_number} />
+                      <InfoRow label="Roll Number" value={selectedStudent.roll_number} />
+                      <InfoRow label="Full Name" value={selectedStudent.full_name} />
+                      <InfoRow label="Date of Birth" value={selectedStudent.dob} />
+                      <InfoRow label="Gender" value={selectedStudent.gender} />
+                      <InfoRow label="Mother's Name" value={selectedStudent.mother_name} />
+                      <InfoRow label="Mother's Occupation" value={selectedStudent.mother_occupation} />
+                      <InfoRow label="Father's Name" value={selectedStudent.father_name} />
+                      <InfoRow label="Father's Occupation" value={selectedStudent.father_occupation} />
+                      <InfoRow label="Annual Income" value={selectedStudent.annual_income !== undefined ? `$${selectedStudent.annual_income}` : '-'} />
+                      <InfoRow label="Nationality" value={selectedStudent.nationality} />
+                      <InfoRow label="Class" value={classMap[selectedStudent.class_id] || `Class ${selectedStudent.class_id}`} />
+                      <InfoRow label="Section" value={selectedStudent.section} />
+                      <InfoRow label="Academic Year" value={selectedStudent.academic_year} />
                     </Stack>
                   )}
 
-                  {infoTab === 'contact' && selectedContactInfo && (
+                  {infoTab === 'contact' && (
                     <Stack spacing={1.25} pt={1}>
                       <Typography fontWeight={600} mb={1} fontSize={16}>Contact Information</Typography>
-                      <InfoRow label="Email" value={selectedContactInfo.email} />
-                      <InfoRow label="Mobile Number" value={selectedContactInfo.mobile_number} />
-                      <InfoRow label="Alternate Contact" value={selectedContactInfo.alternate_contact_number} />
-                      <InfoRow label="Address" value={selectedContactInfo.address} />
-                      <InfoRow label="City" value={selectedContactInfo.city} />
-                      <InfoRow label="State" value={selectedContactInfo.state} />
-                      <InfoRow label="Country" value={selectedContactInfo.country} />
-                      <InfoRow label="Postal Code" value={selectedContactInfo.postal_code} />
-                      <InfoRow label="Guardian Contact Info" value={selectedContactInfo.guardian_contact_info} />
+                      <InfoRow label="Email" value={selectedStudent.email} />
+                      <InfoRow label="Mobile Number" value={selectedStudent.mobile_number} />
+                      <InfoRow label="Alternate Contact" value={selectedStudent.alternate_contact_number} />
+                      <InfoRow label="Address" value={selectedStudent.address} />
+                      <InfoRow label="City" value={selectedStudent.city} />
+                      <InfoRow label="State" value={selectedStudent.state} />
+                      <InfoRow label="Country" value={selectedStudent.country} />
+                      <InfoRow label="Postal Code" value={selectedStudent.postal_code} />
+                      <InfoRow label="Guardian Contact Info" value={selectedStudent.guardian_contact_info} />
                     </Stack>
                   )}
 
-                  {infoTab === 'health' && selectedHealthInfo && (
+                  {infoTab === 'health' && (
                     <Stack spacing={1.25} pt={1}>
                       <Typography fontWeight={600} mb={1} fontSize={16}>Health & Admission</Typography>
-                      <InfoRow label="Blood Group" value={selectedHealthInfo.blood_group} />
-                      <InfoRow label="Status" value={selectedHealthInfo.status} />
-                      <InfoRow label="Admission Date" value={selectedHealthInfo.admission_date} />
-                      <InfoRow label="Weight (kg)" value={selectedHealthInfo.weight_kg?.toString()} />
-                      <InfoRow label="Height (cm)" value={selectedHealthInfo.height_cm?.toString()} />
-                      <InfoRow label="HB Range" value={selectedHealthInfo.hb_range} />
-                      <InfoRow label="Medical Conditions" value={selectedHealthInfo.medical_conditions} />
-                      <InfoRow label="Emergency Contact Person" value={selectedHealthInfo.emergency_contact_person} />
-                      <InfoRow label="Emergency Contact" value={selectedHealthInfo.emergency_contact} />
-                      <InfoRow label="Vaccination Certificate" value={selectedHealthInfo.vaccination_certificate} />
+                      <InfoRow label="Blood Group" value={selectedStudent.blood_group} />
+                      <InfoRow label="Status" value={selectedStudent.status} />
+                      <InfoRow label="Admission Date" value={selectedStudent.admission_date} />
+                      <InfoRow label="Weight (kg)" value={selectedStudent.weight_kg?.toString()} />
+                      <InfoRow label="Height (cm)" value={selectedStudent.height_cm?.toString()} />
+                      <InfoRow label="HB Range" value={selectedStudent.hb_range} />
+                      <InfoRow label="Medical Conditions" value={selectedStudent.medical_conditions} />
+                      <InfoRow label="Emergency Contact Person" value={selectedStudent.emergency_contact_person} />
+                      <InfoRow label="Emergency Contact" value={selectedStudent.emergency_contact} />
+                      <InfoRow label="Vaccination Certificate" value={selectedStudent.vaccination_certificate} />
                     </Stack>
                   )}
 
-                  {infoTab === 'documents' && selectedDocumentsInfo && (
+                  {infoTab === 'documents' && (
                     <Stack spacing={1.25} pt={1}>
                       <Typography fontWeight={600} mb={1} fontSize={16}>Documents</Typography>
                       {(['birth_certificate', 'transfer_certificate', 'previous_academic_records', 'address_proof',
