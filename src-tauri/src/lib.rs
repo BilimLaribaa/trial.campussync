@@ -108,7 +108,7 @@ pub fn run() {
             image::get_image_path,
             image::delete_image,
             // idcard commands
-             idcard::get_all_students_for_idcards,
+            //  idcard::get_all_students_for_idcards,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

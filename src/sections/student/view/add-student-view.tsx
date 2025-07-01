@@ -233,48 +233,49 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
 
 
   const handleFileUpload = async (field: keyof Student, files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  if (!files || files.length === 0) return;
+  
+  const file = files[0];
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBytes = Array.from(new Uint8Array(arrayBuffer));
     
-    const file = files[0];
-    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    // This will now return the full path
+    const filePath = await invoke<string>('upload_student_file', {
+      id: formData.id || studentId,
+      fileName: file.name,
+      fileBytes,
+    });
     
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const fileBytes = Array.from(new Uint8Array(arrayBuffer));
-      
-      const fileName = await invoke<string>('upload_student_file', {
-        id: formData.id || studentId,
-        fileName: file.name,
-        fileBytes,
-      });
-      
-      setFormData(prev => ({
-        ...prev,
-        [field]: fileName
-      }));
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          setFileObjects(prev => ({
-            ...prev,
-            [field]: { file, preview: result }
-          }));
-        }
-      };
-      
-      if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-        reader.readAsDataURL(file);
-      } else if (extension === 'pdf') {
-        reader.readAsDataURL(file);
+    setFormData(prev => ({
+      ...prev,
+      [field]: filePath  // Store full path
+    }));
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (result) {
+        setFileObjects(prev => ({
+          ...prev,
+          [field]: { file, preview: result }
+        }));
       }
-      
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      setSnackbar({ open: true, message: 'Failed to upload file', severity: 'error' });
+    };
+    
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+      reader.readAsDataURL(file);
+    } else if (extension === 'pdf') {
+      reader.readAsDataURL(file);
     }
-  };
+    
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    setSnackbar({ open: true, message: 'Failed to upload file', severity: 'error' });
+  }
+};
 
   const handlePreview = (field: keyof Student) => {
     const fileObj = fileObjects[field as string];
@@ -759,14 +760,15 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
         </Stack>
       );
       case 3: return (
-  <Box sx={{ maxWidth: 800, margin: '0 auto' }}>
+  <Box sx={{ maxWidth: 1200, margin: '0 auto' }}>
     <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 'medium' }}>
       Document Upload
     </Typography>
 
-    <Stack spacing={3}>
-      <Paper elevation={1} sx={{ p: 2 }}>
-        <Stack spacing={2}>
+    <Box sx={{ display: 'flex', gap: 3 }}>
+      {/* Left Column - All documents except passport photo */}
+      <Paper elevation={1} sx={{ p: 2, flex: 1 }}>
+        <Stack spacing={3}>
           <Typography variant="h6">Upload Documents</Typography>
           
           {/* Document Type Selector */}
@@ -783,7 +785,6 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
               { value: 'previous_academic_records', label: 'Academic Records' },
               { value: 'address_proof', label: 'Address Proof' },
               { value: 'id_proof', label: 'ID Proof' },
-              { value: 'passport_photo', label: 'Passport Photo' },
               { value: 'medical_certificate', label: 'Medical Certificate' },
               { value: 'vaccination_certificate', label: 'Vaccination Certificate' },
               { value: 'other_documents', label: 'Other Documents' },
@@ -824,7 +825,7 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
           </Button>
 
           {/* Preview */}
-          {currentPreview && (
+          {currentPreview && currentDocumentType !== 'passport_photo' && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle2">Preview:</Typography>
               {currentPreview.startsWith('data:image') ? (
@@ -842,85 +843,209 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
           )}
 
           {/* Upload Button */}
-          <Button
-            variant="contained"
-            onClick={async () => {
-              if (!currentDocumentType || !currentFile) return;
-              
-              try {
-                setIsSubmitting(true);
-                const arrayBuffer = await currentFile.arrayBuffer();
-                const fileBytes = Array.from(new Uint8Array(arrayBuffer));
-                
-                const fileName = await invoke<string>('upload_student_file', {
-                  id: formData.id || studentId,
-                  fileName: currentFile.name,
-                  fileBytes,
-                });
-                
-                setUploadedDocuments(prev => ({
-                  ...prev,
-                  [currentDocumentType]: fileName
-                }));
-                
-                // Reset current selection
-                setCurrentFile(null);
-                setCurrentPreview(null);
-                setCurrentDocumentType(null);
-                
-                setSnackbar({ 
-                  open: true, 
-                  message: 'Document uploaded successfully!', 
-                  severity: 'success' 
-                });
-              } catch (error) {
-                console.error('Error uploading file:', error);
-                setSnackbar({ 
-                  open: true, 
-                  message: 'Failed to upload document', 
-                  severity: 'error' 
-                });
-              } finally {
-                setIsSubmitting(false);
-              }
-            }}
-            disabled={!currentFile || isSubmitting}
-            fullWidth
-            sx={{ mt: 2 }}
-          >
-            {isSubmitting ? 'Uploading...' : 'Upload Document'}
-          </Button>
+         <Button
+  variant="contained"
+  onClick={async () => {
+    if (!currentDocumentType || !currentFile) return;
+    
+    try {
+      setIsSubmitting(true);
+      const arrayBuffer = await currentFile.arrayBuffer();
+      const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+      
+      // This now returns full path
+      const filePath = await invoke<string>('upload_student_file', {
+        id: formData.id || studentId,
+        fileName: currentFile.name,
+        fileBytes,
+      });
+      
+      setUploadedDocuments(prev => ({
+        ...prev,
+        [currentDocumentType]: filePath  // Store full path
+      }));
+      
+      // Reset current selection
+      setCurrentFile(null);
+      setCurrentPreview(null);
+      setCurrentDocumentType(null);
+      
+      setSnackbar({ 
+        open: true, 
+        message: 'Document uploaded successfully!', 
+        severity: 'success' 
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setSnackbar({ 
+        open: true, 
+        message: 'Failed to upload document', 
+        severity: 'error' 
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }}
+  disabled={!currentFile || isSubmitting}
+  fullWidth
+  sx={{ mt: 2 }}
+>
+  {isSubmitting ? 'Uploading...' : 'Upload Document'}
+</Button>
+
+          {/* Uploaded Documents List */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2 }}>Uploaded Documents</Typography>
+            {Object.keys(uploadedDocuments).filter(key => key !== 'passport_photo').length === 0 ? (
+              <Typography variant="body2">No documents uploaded yet</Typography>
+            ) : (
+              <Stack spacing={1}>
+                {Object.entries(uploadedDocuments)
+                  .filter(([key]) => key !== 'passport_photo')
+                  .map(([key, value]) => (
+                    <Box key={key} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body1">
+                        {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                      </Typography>
+                      <Chip 
+                        label="Uploaded" 
+                        color="success" 
+                        size="small"
+                        onDelete={() => {
+                          const newUploads = {...uploadedDocuments};
+                          delete newUploads[key as keyof StudentDocs];
+                          setUploadedDocuments(newUploads);
+                        }}
+                      />
+                    </Box>
+                  ))}
+              </Stack>
+            )}
+          </Box>
         </Stack>
       </Paper>
 
-      {/* Uploaded Documents List */}
-      <Paper elevation={1} sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Uploaded Documents</Typography>
-        {Object.keys(uploadedDocuments).length === 0 ? (
-          <Typography variant="body2">No documents uploaded yet</Typography>
-        ) : (
-          <Stack spacing={1}>
-            {Object.entries(uploadedDocuments).map(([key, value]) => (
-              <Box key={key} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="body1">
-                  {key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                </Typography>
+      {/* Right Column - Passport Photo */}
+      <Paper elevation={1} sx={{ p: 2, flex: 1 }}>
+        <Stack spacing={3}>
+          <Typography variant="h6">Passport Photo</Typography>
+          
+          {/* File Upload for Passport Photo */}
+          <Button
+            variant="outlined"
+            component="label"
+            startIcon={<CloudUploadIcon />}
+            fullWidth
+          >
+            Select Passport Photo
+            <input
+              type="file"
+              hidden
+              accept=".jpg,.jpeg,.png"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  const file = e.target.files[0];
+                  setCurrentFile(file);
+                  setCurrentDocumentType('passport_photo');
+                  
+                  // Create preview
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    setCurrentPreview(event.target?.result as string);
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
+            />
+          </Button>
+
+          {/* Preview for Passport Photo */}
+          {currentPreview && currentDocumentType === 'passport_photo' && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2">Preview:</Typography>
+              <img 
+                src={currentPreview} 
+                alt="Passport Preview" 
+                style={{ maxWidth: '100%', maxHeight: 200, marginTop: 8 }} 
+              />
+            </Box>
+          )}
+
+          {/* Upload Button for Passport Photo */}
+          <Button
+  variant="contained"
+  onClick={async () => {
+    if (!currentDocumentType || !currentFile) return;
+    
+    try {
+      setIsSubmitting(true);
+      const arrayBuffer = await currentFile.arrayBuffer();
+      const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+      
+      // This now returns full path
+      const filePath = await invoke<string>('upload_student_file', {
+        id: formData.id || studentId,
+        fileName: currentFile.name,
+        fileBytes,
+      });
+      
+      setUploadedDocuments(prev => ({
+        ...prev,
+        [currentDocumentType]: filePath  // Store full path
+      }));
+      
+      // Reset current selection
+      setCurrentFile(null);
+      setCurrentPreview(null);
+      setCurrentDocumentType(null);
+      
+      setSnackbar({ 
+        open: true, 
+        message: 'Document uploaded successfully!', 
+        severity: 'success' 
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setSnackbar({ 
+        open: true, 
+        message: 'Failed to upload document', 
+        severity: 'error' 
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }}
+  disabled={!currentFile || isSubmitting}
+  fullWidth
+  sx={{ mt: 2 }}
+>
+  {isSubmitting ? 'Uploading...' : 'Upload Document'}
+</Button>
+
+          {/* Uploaded Passport Photo Status */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 2 }}>Passport Photo Status</Typography>
+            {uploadedDocuments.passport_photo ? (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body1">Passport Photo</Typography>
                 <Chip 
                   label="Uploaded" 
                   color="success" 
                   size="small"
                   onDelete={() => {
                     const newUploads = {...uploadedDocuments};
-                    delete newUploads[key as keyof StudentDocs];
+                    delete newUploads.passport_photo;
                     setUploadedDocuments(newUploads);
                   }}
                 />
               </Box>
-            ))}
-          </Stack>
-        )}
+            ) : (
+              <Typography variant="body2">No passport photo uploaded yet</Typography>
+            )}
+          </Box>
+        </Stack>
       </Paper>
-    </Stack>
+    </Box>
   </Box>
 );
       default: return null;

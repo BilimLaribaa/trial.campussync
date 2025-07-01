@@ -23,6 +23,52 @@ import { AnalyticsWidgetSummary, SchoolBanner } from '../analytics-widget-summar
 
 // ----------------------------------------------------------------------
 
+
+type Student = {
+  id: number;
+  gr_number: string;
+  roll_number?: string;
+  full_name: string;
+  dob?: string;
+  gender: string;
+  mother_name: string;
+  father_name: string;
+  father_occupation?: string;
+  mother_occupation?: string;
+  annual_income?: number;
+  nationality?: string;
+  profile_image?: string;
+  class_id: string;
+  section?: string;
+  academic_year?: string;
+  email?: string;
+  mobile_number?: string;
+  alternate_contact_number?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postal_code?: string;
+  guardian_contact_info?: string;
+  blood_group?: string;
+  status?: string;
+  admission_date?: string;
+  weight_kg?: number;
+  height_cm?: number;
+  hb_range?: string;
+  medical_conditions?: string;
+  emergency_contact_person?: string;
+  emergency_contact?: string;
+  birth_certificate?: string;
+  transfer_certificate?: string;
+  previous_academic_records?: string;
+  address_proof?: string;
+  id_proof?: string;
+  passport_photo?: string;
+  medical_certificate?: string;
+  vaccination_certificate?: string;
+  other_documents?: string;
+};
 type StudentData = {
   total: number;
   active: number;
@@ -51,7 +97,7 @@ function StudentsWidget() {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const students = await invoke<any[]>('get_all_student1');
+        const students = await invoke<Student[]>('get_students', { id: null });
         const currentYear = '2024-2025';
 
         const summaryData = students.reduce(
@@ -76,7 +122,7 @@ function StudentsWidget() {
         );
 
         const previousTotal = students.filter(s =>
-          s.created_at && new Date(s.created_at).getMonth() < new Date().getMonth()
+          s.admission_date && new Date(s.admission_date).getMonth() < new Date().getMonth()
         ).length;
         const growthPercent = previousTotal ? ((summaryData.total - previousTotal) / previousTotal) * 100 : 0;
 
@@ -88,7 +134,7 @@ function StudentsWidget() {
 
         const trend = last7Days.map(date =>
           students.filter(s =>
-            s.created_at && new Date(s.created_at).toDateString() === date.toDateString()
+            s.admission_date && new Date(s.admission_date).toDateString() === date.toDateString()
           ).length + (date < new Date() ? summaryData.total : 0)
         );
 
@@ -116,7 +162,7 @@ function StudentsWidget() {
       title="Number of Students"
       percent={studentData.growthPercent}
       total={studentData.total}
-      color="secondary"  // Using the same secondary color as your "New users" widget
+      color="secondary"
       icon={<img alt="Total Students" src="/assets/icons/glass/ic-glass-users.svg" />}
       chart={{
         categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],

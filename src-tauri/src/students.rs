@@ -452,7 +452,8 @@ pub async fn upload_student_file(
     file.write_all(&file_bytes)
         .map_err(|e| format!("Failed to write file: {}", e))?;
 
-    Ok(new_filename)
+    // Return the full path instead of just the filename
+    Ok(dest_path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -544,7 +545,7 @@ pub async fn get_student_document_path(
 
 
 pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
-     conn.execute("DROP TABLE IF EXISTS students", [])?;
+    //  conn.execute("DROP TABLE IF EXISTS students", [])?;
     conn.execute("PRAGMA foreign_keys = ON", [])?;
     
     let table_exists: i64 = conn.query_row(
