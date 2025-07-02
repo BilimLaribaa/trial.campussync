@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Dialog from '@mui/material/Dialog';
+import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
@@ -15,7 +16,7 @@ import { LayoutSection } from 'src/layouts/core/layout-section';
 
 import { Iconify } from 'src/components/iconify';
 
-type SettingTab = 'general' | 'email';
+type SettingTab = 'settings' | 'email' | 'academicYear';
 
 interface VersionInfo {
   version: string;
@@ -37,29 +38,27 @@ export function Settings({ onUpdateEmailSettings }: {
   const [versionInfo, setVersionInfo] = useState<VersionInfo | null>(null);
   const [open, setOpen] = useState(false);
   const [rotateIcon, setRotateIcon] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingTab>('general');
+  const [activeTab, setActiveTab] = useState<SettingTab>('email');
+  const [showEmailConfig, setShowEmailConfig] = useState(true);
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
-    email: '',
-    password: '',
+    email: 'demo@example.com',
+    password: 'demoPassword123',
   });
 
-  // Load email/password from localStorage
   useEffect(() => {
-    const email = localStorage.getItem(EMAIL_STORAGE_KEY) || '';
-    const password = localStorage.getItem(PASSWORD_STORAGE_KEY) || '';
+    // Load from localStorage or use defaults
+    const email = localStorage.getItem(EMAIL_STORAGE_KEY) || 'demo@example.com';
+    const password = localStorage.getItem(PASSWORD_STORAGE_KEY) || 'demoPassword123';
     setEmailSettings({ email, password });
 
     if (onUpdateEmailSettings) {
       onUpdateEmailSettings({ email, password });
     }
-  }, []);
 
-  useEffect(() => {
     const fetchVersion = async () => {
       try {
         const appVersion = await getVersion();
         const installDate = new Date().toISOString();
-
         setVersionInfo({
           version: appVersion,
           installDate,
@@ -73,19 +72,21 @@ export function Settings({ onUpdateEmailSettings }: {
     fetchVersion();
   }, []);
 
-  const handleEmailSettings = () => {
-    const email = prompt('Enter default sender email:', emailSettings.email);
-    const password = prompt('Enter password for this email:', '');
+  const handleEmailChange = (field: keyof EmailSettings, value: string) => {
+    const updatedSettings = { ...emailSettings, [field]: value };
+    setEmailSettings(updatedSettings);
+  };
 
-    if (email && password) {
-      const updatedSettings = { email, password };
-      setEmailSettings(updatedSettings);
-      localStorage.setItem(EMAIL_STORAGE_KEY, email);
-      localStorage.setItem(PASSWORD_STORAGE_KEY, password);
+  const handleSubmit = () => {
+    if (emailSettings.email && emailSettings.password) {
+      localStorage.setItem(EMAIL_STORAGE_KEY, emailSettings.email);
+      localStorage.setItem(PASSWORD_STORAGE_KEY, emailSettings.password);
       if (onUpdateEmailSettings) {
-        onUpdateEmailSettings(updatedSettings);
+        onUpdateEmailSettings(emailSettings);
       }
       alert('Email settings saved. They will persist across pages and refresh.');
+    } else {
+      alert('Please fill in both email and password fields');
     }
   };
 
@@ -107,17 +108,26 @@ export function Settings({ onUpdateEmailSettings }: {
     setRotateIcon(false);
   };
 
-  const renderHeader = () => (
-    <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-      <Typography variant="h6">Settings</Typography>
-    </Box>
-  );
+  const handleEmailTabClick = () => {
+    setActiveTab('email');
+    setShowEmailConfig(!showEmailConfig);
+  };
+
+  const handleSettingsTabClick = () => {
+    setActiveTab('settings');
+    setShowEmailConfig(false);
+  };
+
+  const handleAcademicYearTabClick = () => {
+    setActiveTab('academicYear');
+    setShowEmailConfig(false);
+  };
 
   const renderSidebar = () => (
-    <Box sx={{ width: 240, borderRight: '1px solid', borderColor: 'divider', height: '100%' }}>
+    <Box sx={{ width: 200, borderRight: '1px solid', borderColor: 'divider', height: '100%' }}>
       <Stack spacing={1} sx={{ p: 2 }}>
         <Box
-          onClick={() => setActiveTab('general')}
+          onClick={handleSettingsTabClick}
           sx={{
             cursor: 'pointer',
             p: 1.5,
@@ -125,7 +135,7 @@ export function Settings({ onUpdateEmailSettings }: {
             display: 'flex',
             alignItems: 'center',
             gap: 1,
-            ...(activeTab === 'general' && {
+            ...(activeTab === 'settings' && {
               bgcolor: 'action.selected',
               color: 'primary.main',
             }),
@@ -135,14 +145,11 @@ export function Settings({ onUpdateEmailSettings }: {
           }}
         >
           <Iconify icon="solar:pen-bold" width={20} />
-          <Typography variant="body2">General</Typography>
+          <Typography variant="body2">Settings</Typography>
         </Box>
 
         <Box
-          onClick={() => {
-            setActiveTab('email');
-            handleEmailSettings();
-          }}
+          onClick={handleEmailTabClick}
           sx={{
             cursor: 'pointer',
             p: 1.5,
@@ -162,53 +169,141 @@ export function Settings({ onUpdateEmailSettings }: {
           <Iconify icon="solar:mail-unread-bold" width={20} />
           <Typography variant="body2">Email</Typography>
         </Box>
+
+        <Box
+  onClick={handleAcademicYearTabClick}
+  sx={{
+    cursor: 'pointer',
+    p: 1.5,
+    borderRadius: 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+    ...(activeTab === 'academicYear' && {
+      bgcolor: 'action.selected',
+      color: 'primary.main',
+    }),
+    '&:hover': {
+      bgcolor: 'action.hover',
+    },
+  }}
+>
+  <Iconify icon="solar:calendar-bold" width={20} />
+  <Typography variant="body2">Academic Year</Typography>
+</Box>
       </Stack>
     </Box>
+  );
+
+  const renderEmailSettingsForm = () => (
+    showEmailConfig && (
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 30,
+          right: 70,
+          width: 500,
+          bgcolor: 'background.paper',
+          boxShadow: 1,
+          p: 2,
+          borderRadius: 1,
+          zIndex: 1200,
+        }}
+      >
+        <Typography variant="subtitle1" gutterBottom>
+          Email Settings
+        </Typography>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" display="block" mb={1}>
+            Email
+          </Typography>
+          <input
+            type="email"
+            value={emailSettings.email}
+            onChange={(e) => handleEmailChange('email', e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '8px 12px', 
+              fontSize: '14px',
+              borderRadius: 4,
+              border: '1px solid #ccc'
+            }}
+            placeholder="Enter default sender email"
+          />
+        </Box>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="caption" display="block" mb={1}>
+            App Password
+          </Typography>
+          <input
+            type="password"
+            value={emailSettings.password}
+            onChange={(e) => handleEmailChange('password', e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '8px 12px', 
+              fontSize: '14px',
+              borderRadius: 4,
+              border: '1px solid #ccc'
+            }}
+            placeholder="Enter app password"
+          />
+        </Box>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          fullWidth
+          sx={{ mb: 2 }}
+        >
+          Save Email Settings
+        </Button>
+        <Link
+          component="button"
+          variant="body2"
+          onClick={handleHelpClick}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            color: 'primary.main',
+            textDecoration: 'underline',
+            cursor: 'pointer',
+          }}
+        >
+          Google App Password Setup Guide
+          <OpenInNewIcon fontSize="small" sx={{ ml: 0.5 }} />
+        </Link>
+        
+        <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="subtitle1" gutterBottom>
+            Email Configuration
+          </Typography>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            Current email: {emailSettings.email || 'Not set'}
+          </Typography>
+        </Box>
+      </Box>
+    )
   );
 
   const renderContent = () => {
     switch (activeTab) {
       case 'email':
+        return <Box sx={{ p: 3, flex: 1 }} />;
+      case 'academicYear':
         return (
           <Box sx={{ p: 3, flex: 1 }}>
             <Typography variant="subtitle1" gutterBottom>
-              Email Configuration
-            </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
-              Current email: {emailSettings.email || 'Not set'}
-            </Typography>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Link
-                component="button"
-                variant="body2"
-                onClick={handleHelpClick}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  color: 'primary.main',
-                  textDecoration: 'underline',
-                  cursor: 'pointer',
-                }}
-              >
-                Google App Password Setup Guide
-                <OpenInNewIcon fontSize="small" sx={{ ml: 0.5 }} />
-              </Link>
-            </Stack>
-          </Box>
-        );
-      case 'general':
-      default:
-        return (
-          <Box sx={{ p: 3, flex: 1 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              General Settings
+              Academic Year Settings
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Application preferences and configurations
+              Configure academic year parameters
             </Typography>
           </Box>
         );
+      case 'settings':
+      default:
+        return <Box sx={{ p: 3, flex: 1 }} />;
     }
   };
 
@@ -259,28 +354,33 @@ export function Settings({ onUpdateEmailSettings }: {
       <Dialog
         open={open}
         onClose={handleClose}
-        maxWidth="lg"
+        maxWidth="md"
         fullWidth
         sx={{
           '& .MuiPaper-root': {
-            height: '70vh',
-            maxHeight: 600,
+            height: '80vh',
+            maxHeight: 700,
+            position: 'relative',
+            width: '80%',
+            maxWidth: 800,
           },
         }}
       >
         <LayoutSection
-          headerSection={renderHeader()}
           sidebarSection={renderSidebar()}
           footerSection={renderFooter()}
           sx={{
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
+            position: 'relative',
           }}
         >
+          {renderEmailSettingsForm()}
           <Box sx={{ display: 'flex', flexDirection: 'row', flex: 1 }}>
             {renderContent()}
           </Box>
+          
         </LayoutSection>
       </Dialog>
     </>
