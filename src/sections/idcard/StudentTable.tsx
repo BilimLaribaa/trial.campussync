@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
     Box,
     Table,
@@ -18,7 +20,6 @@ import {
     Typography,
     Divider,
   } from '@mui/material';
-  import { useState } from 'react';
   
   type Student = {
     id: number;

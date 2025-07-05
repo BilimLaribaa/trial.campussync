@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useState, useEffect, useMemo } from 'react';
+
 import {
   Box,
   Card,
@@ -9,9 +10,10 @@ import {
   Alert,
 } from '@mui/material';
 
+import { DashboardContent } from 'src/layouts/dashboard';
+
 import { StudentTable } from './StudentTable';
 import { IDCardPreview } from './IDCardPreview';
-import { DashboardContent } from 'src/layouts/dashboard';
 
 // Types
 type Student = {
@@ -43,18 +45,16 @@ export function IdCardView() {
   const [showToast, setShowToast] = useState(false);
 
   // Filtered students based on class and search
-  const filteredStudents = useMemo(() => {
-    return students
-      .filter(
-        (student) =>
-          !selectedClass || student.class_id.toString() === selectedClass
-      )
-      .filter(
-        (student) =>
-          student.full_name.toLowerCase().includes(search.toLowerCase()) ||
-          student.gr_number.toLowerCase().includes(search.toLowerCase())
-      );
-  }, [students, selectedClass, search]);
+  const filteredStudents = useMemo(() => students
+  .filter(
+    (student) =>
+      !selectedClass || student.class_id.toString() === selectedClass
+  )
+  .filter(
+    (student) =>
+      student.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      student.gr_number.toLowerCase().includes(search.toLowerCase())
+  ), [students, selectedClass, search]);
 
   // Fetch classes
   const fetchClasses = async () => {

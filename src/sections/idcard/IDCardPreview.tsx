@@ -1,12 +1,14 @@
-import { Box, Typography, Button, Stack, Slider, Select, MenuItem, FormControl, InputLabel, TextField, Menu } from '@mui/material';
-import { useState, useRef } from 'react';
-import { Rnd } from 'react-rnd';
-import html2canvas from 'html2canvas';
 import JSZip from 'jszip';
-import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
+import { Rnd } from 'react-rnd';
+import { saveAs } from 'file-saver';
+import html2canvas from 'html2canvas';
+import { useState, useRef } from 'react';
+
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { Box, Typography, Button, Stack, Slider, Select, MenuItem, FormControl, InputLabel, TextField, Menu } from '@mui/material';
+
 
 type Student = {
   id: number;
@@ -148,10 +150,10 @@ export function IDCardPreview({
     setOverlays((prev) => prev.length > 1 ? prev.filter((o) => o.id !== id) : prev);
   };
 
-  const handleOverlayDoubleClick = (event: React.MouseEvent<HTMLElement>, overlayId: number) => {
-    event.preventDefault();
-    setContextMenu({ anchorEl: event.currentTarget as HTMLElement, overlayId });
-  };
+  const handleOverlayDoubleClick = (event: React.MouseEvent<HTMLElement>, clickedOverlayId: number) => {
+  event.preventDefault();
+  setContextMenu({ anchorEl: event.currentTarget as HTMLElement, overlayId: clickedOverlayId });
+};
   const handleContextMenuClose = () => {
     setContextMenu({ anchorEl: null, overlayId: null });
   };
@@ -435,6 +437,7 @@ export function IDCardPreview({
                       size={undefined}
                       onDragStop={(_, d) => handleOverlayPosition(overlay.id, { x: d.x, y: d.y })}
                       onDoubleClick={(e: React.MouseEvent<HTMLElement>) => handleOverlayDoubleClick(e, overlay.id)}
+
                     >
                       <Box
                         sx={{
