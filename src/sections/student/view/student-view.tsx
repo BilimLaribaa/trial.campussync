@@ -89,7 +89,6 @@ export function StudentView() {
   const [previewFileName, setPreviewFileName] = useState('');
   const [downloadStatus, setDownloadStatus] = useState<{ success: boolean, message: string } | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleDelete = async () => {
     if (!selectedStudentId) return;
@@ -290,47 +289,6 @@ const handleDownloadTemplate = async () => {
 const handleImportStudents = () => {
   console.log("Student adding in process");
   // Here you would typically add your import logic
-};
-const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  // Validate file type
-  const validExtensions = ['.xlsx', '.xls'];
-  const fileExtension = file.name.split('.').pop()?.toLowerCase();
-  
-  if (!fileExtension || !validExtensions.includes(`.${fileExtension}`)) {
-    alert('Please select a valid Excel file (.xls or .xlsx)');
-    return;
-  }
-
-  setSelectedFile(file);
-};
-
-const handleFileUpload = async () => {
-  if (!selectedFile) return;
-
-  try {
-    const arrayBuffer = await selectedFile.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-
-    const result = await invoke<number>('import_students_excel', {
-      fileBytes: Array.from(bytes),
-      fileName: selectedFile.name
-    });
-
-    alert(`${result} students imported successfully!`);
-    
-    // Refresh student list
-    const studentsData = await invoke<Student[]>('get_students', { id: null });
-    setStudents(studentsData);
-    setImportDialogOpen(false);
-    setSelectedFile(null);
-
-  } catch (err) {
-    console.error('Import failed:', err);
-    alert(`Failed to import students: ${err instanceof Error ? err.message : String(err)}`);
-  }
 };
 
   return (
@@ -628,33 +586,12 @@ const handleFileUpload = async () => {
           </Button>
         </DialogActions>
       </Dialog>
-     <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)}>
+      <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)}>
   <DialogTitle>Import Students</DialogTitle>
   <DialogContent>
     <Typography variant="body1" sx={{ mb: 2 }}>
       Download the template file, fill in student data, then import it.
     </Typography>
-    <input
-      type="file"
-      id="student-import-file"
-      accept=".xlsx,.xls"
-      style={{ display: 'none' }}
-      onChange={handleFileSelect}
-    />
-    <label htmlFor="student-import-file">
-      <Button 
-        variant="contained" 
-        component="span"
-        sx={{ mt: 2 }}
-      >
-        Select Excel File
-      </Button>
-    </label>
-    {selectedFile && (
-      <Typography variant="body2" sx={{ mt: 2 }}>
-        Selected: {selectedFile.name}
-      </Typography>
-    )}
   </DialogContent>
   <DialogActions>
     <Button 
@@ -668,10 +605,9 @@ const handleFileUpload = async () => {
     <Button 
       variant="contained" 
       color="success" 
-      onClick={handleFileUpload}
-      disabled={!selectedFile}
+      onClick={handleImportStudents}
     >
-      Import Students
+      Insert Students
     </Button>
   </DialogActions>
 </Dialog>
