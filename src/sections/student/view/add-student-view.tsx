@@ -175,7 +175,7 @@ const INITIAL_VALUES: Student = {
 
 const REQUIRED_FIELDS: Record<number, (keyof Student)[]> = {
   0: ['gr_number', 'full_name', 'gender', 'class_id', 'mother_name', 'father_name'],
-  1: ['email', 'mobile_number'],
+  1: ['email', 'mobile_number'], // Added emergency_contact as required
   2: [],
   3: []
 };
@@ -231,6 +231,7 @@ const [currentFile, setCurrentFile] = useState<File | null>(null);
 const [currentPreview, setCurrentPreview] = useState<string | null>(null);
 const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>({});
 
+const [passportUploaded, setPassportUploaded] = useState(false);
 
   const handleFileUpload = async (field: keyof Student, files: FileList | null) => {
   if (!files || files.length === 0) return;
@@ -351,48 +352,42 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
   }, [id, editingStudent]);
 
   const validateField = (field: keyof Student, value: string | number | undefined) => {
-    let errorMessage = '';
-    const stringValue = value?.toString() || '';
+  let errorMessage = '';
+  const stringValue = value?.toString() || '';
 
-    if (REQUIRED_FIELDS[activeStep].includes(field) && !stringValue) {
-      errorMessage = `${field} is required`;
-    } else if (stringValue && REQUIRED_FIELDS[activeStep].includes(field)) {
-      switch (field) {
-        case 'gr_number':
-          if (!/^\d+$/.test(stringValue)) {
-            errorMessage = 'GR Number must contain only numbers';
-          }
-          break;
-        case 'full_name':
-        case 'father_name':
-        case 'mother_name':
-          if (!/^[A-Za-z\s]+$/.test(stringValue)) {
-            errorMessage = `${field} should only contain alphabetic characters`;
-          }
-          break;
-        case 'mobile_number':
-        case 'alternate_contact_number':
-        case 'emergency_contact':
-          if (!/^\d{10}$/.test(stringValue)) {
-            errorMessage = 'Phone number must be 10 digits';
-          }
-          break;
-        case 'email':
-          if (!/\S+@\S+\.\S+/.test(stringValue)) {
-            errorMessage = 'Invalid email format';
-          }
-          break;
-        case 'postal_code':
-          if (!/^\d{6}$/.test(stringValue)) {
-            errorMessage = 'Postal code must be 6 digits';
-          }
-          break;
-        default:
-          break;
-      }
+  if (REQUIRED_FIELDS[activeStep].includes(field) && !stringValue) {
+    errorMessage = `${field} is required`;
+  } else if (stringValue) {
+    switch (field) {
+      case 'gr_number':
+        if (!/^\d{4}$/.test(stringValue)) {
+          errorMessage = 'GR Number must be exactly 4 digits';
+        }
+        break;
+      case 'mobile_number':
+      case 'alternate_contact_number':
+      case 'emergency_contact':
+        if (!/^\d{10}$/.test(stringValue)) {
+          errorMessage = 'Phone number must be exactly 10 digits';
+        }
+        break;
+      case 'email':
+        if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(stringValue)) {
+          errorMessage = 'Email must be in format example@gmail.com';
+        }
+        break;
+      case 'postal_code':
+        if (!/^\d{6}$/.test(stringValue)) {
+          errorMessage = 'Postal code must be 6 digits';
+        }
+        break;
+      default:
+        break;
     }
-    return errorMessage;
-  };
+  }
+  return errorMessage;
+};
+
 
   const validateStep = () => {
     const newErrors: Partial<Record<keyof Student, string>> = {};
@@ -501,6 +496,26 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
   const finalId = formData.id;
   if (!finalId) {
     setSnackbar({ open: true, message: 'Missing student ID. Please complete Step 1.', severity: 'error' });
+    return;
+  }
+
+  // Check if passport photo is selected but not uploaded
+  if (currentDocumentType === 'passport_photo' && currentFile && !uploadedDocuments.passport_photo) {
+    setSnackbar({ 
+      open: true, 
+      message: 'Please click "Upload Passport Photo" button to complete the upload before submitting', 
+      severity: 'error',
+    });
+    return;
+  }
+
+  // Check if passport photo is not uploaded at all
+  if (!uploadedDocuments.passport_photo && !formData.passport_photo) {
+    setSnackbar({ 
+      open: true, 
+      message: 'Passport photo is required. Please upload before submitting', 
+      severity: 'error',
+    });
     return;
   }
 
@@ -620,26 +635,39 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
   const renderStepContent = () => {
     switch (activeStep) {
       case 0: return (
-        <Stack spacing={2}>
-          <Typography variant="h6" gutterBottom>General Information</Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderNumberField('GR Number *', 'gr_number')}
-            {renderTextField('Roll Number', 'roll_number')}
-          </Stack>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderTextField('Full Name *', 'full_name')}
-            <TextField
-              select
-              label="Gender *"
-              value={formData.gender}
-              onChange={handleChange('gender')}
-              onBlur={handleBlur('gender')}
-              fullWidth
-              error={!!errors.gender}
-              helperText={errors.gender}
-            >
-              {GENDER_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-            </TextField>
+  <Stack spacing={2}>
+    <Typography variant="h6" gutterBottom>General Information</Typography>
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+      <TextField
+        label="GR Number *"
+        value={formData.gr_number ?? ''}
+        onChange={handleChange('gr_number')}
+        onBlur={handleBlur('gr_number')}
+        fullWidth
+        error={!!errors.gr_number}
+        helperText={errors.gr_number}
+        inputProps={{
+          maxLength: 4,
+          pattern: '\\d{4}',
+          inputMode: 'numeric'
+        }}
+      />
+      {renderTextField('Roll Number', 'roll_number')}
+    </Stack>
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+      {renderTextField('Full Name *', 'full_name')}
+      <TextField
+        select
+        label="Gender *"
+        value={formData.gender}
+        onChange={handleChange('gender')}
+        onBlur={handleBlur('gender')}
+        fullWidth
+        error={!!errors.gender}
+        helperText={errors.gender}
+      >
+        {GENDER_OPTIONS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+      </TextField>
           </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField
@@ -694,25 +722,64 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
         </Stack>
       );
       case 1: return (
-        <Stack spacing={2}>
-          <Typography variant="h6" gutterBottom>Contact Information</Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderTextField('Mobile Number *', 'mobile_number')}
-            {renderTextField('Alternate Contact Number', 'alternate_contact_number')}
-            {renderTextField('Email *', 'email')}
-          </Stack>
-          {renderTextField('Address', 'address', 'text', 3)}
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderTextField('City', 'city')}
-            {renderTextField('State', 'state')}
-            {renderTextField('Country', 'country')}
-          </Stack>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-            {renderTextField('Postal Code', 'postal_code')}
-            {renderTextField('Guardian Contact Info', 'guardian_contact_info')}
-          </Stack>
-        </Stack>
-      );
+  <Stack spacing={2}>
+    <Typography variant="h6" gutterBottom>Contact Information</Typography>
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+      <TextField
+        label="Mobile Number *"
+        value={formData.mobile_number || ''}
+        onChange={handleChange('mobile_number')}
+        onBlur={handleBlur('mobile_number')}
+        fullWidth
+        error={!!errors.mobile_number}
+        helperText={errors.mobile_number}
+        inputProps={{
+          maxLength: 10,
+          inputMode: 'numeric',
+          pattern: '[0-9]{10}'
+        }}
+      />
+      <TextField
+        label="Alternate Contact Number"
+        value={formData.alternate_contact_number || ''}
+        onChange={handleChange('alternate_contact_number')}
+        onBlur={handleBlur('alternate_contact_number')}
+        fullWidth
+        error={!!errors.alternate_contact_number}
+        helperText={errors.alternate_contact_number}
+        inputProps={{
+          maxLength: 10,
+          inputMode: 'numeric',
+          pattern: '[0-9]{10}'
+        }}
+      />
+      <TextField
+        label="Email *"
+        value={formData.email || ''}
+        onChange={handleChange('email')}
+        onBlur={handleBlur('email')}
+        fullWidth
+        error={!!errors.email}
+        helperText={errors.email}
+        type="email"
+        inputProps={{
+          pattern: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}'
+        }}
+      />
+    </Stack>
+    {/* Rest of the contact form remains the same */}
+    {renderTextField('Address', 'address', 'text', 3)}
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+      {renderTextField('City', 'city')}
+      {renderTextField('State', 'state')}
+      {renderTextField('Country', 'country')}
+    </Stack>
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+      {renderTextField('Postal Code', 'postal_code')}
+      {renderTextField('Guardian Contact Info', 'guardian_contact_info')}
+    </Stack>
+  </Stack>
+);
       case 2: return (
         <Stack spacing={2}>
           <Typography variant="h6" gutterBottom>Health & Admission Details</Typography>
@@ -843,55 +910,54 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
           )}
 
           {/* Upload Button */}
-         <Button
-  variant="contained"
-  onClick={async () => {
-    if (!currentDocumentType || !currentFile) return;
-    
-    try {
-      setIsSubmitting(true);
-      const arrayBuffer = await currentFile.arrayBuffer();
-      const fileBytes = Array.from(new Uint8Array(arrayBuffer));
-      
-      // This now returns full path
-      const filePath = await invoke<string>('upload_student_file', {
-        id: formData.id || studentId,
-        fileName: currentFile.name,
-        fileBytes,
-      });
-      
-      setUploadedDocuments(prev => ({
-        ...prev,
-        [currentDocumentType]: filePath  // Store full path
-      }));
-      
-      // Reset current selection
-      setCurrentFile(null);
-      setCurrentPreview(null);
-      setCurrentDocumentType(null);
-      
-      setSnackbar({ 
-        open: true, 
-        message: 'Document uploaded successfully!', 
-        severity: 'success' 
-      });
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      setSnackbar({ 
-        open: true, 
-        message: 'Failed to upload document', 
-        severity: 'error' 
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }}
-  disabled={!currentFile || isSubmitting}
-  fullWidth
-  sx={{ mt: 2 }}
->
-  {isSubmitting ? 'Uploading...' : 'Upload Document'}
-</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (!currentDocumentType || !currentFile) return;
+              
+              try {
+                setIsSubmitting(true);
+                const arrayBuffer = await currentFile.arrayBuffer();
+                const fileBytes = Array.from(new Uint8Array(arrayBuffer));
+                
+                const filePath = await invoke<string>('upload_student_file', {
+                  id: formData.id || studentId,
+                  fileName: currentFile.name,
+                  fileBytes,
+                });
+                
+                setUploadedDocuments(prev => ({
+                  ...prev,
+                  [currentDocumentType]: filePath
+                }));
+                
+                // Reset current selection
+                setCurrentFile(null);
+                setCurrentPreview(null);
+                setCurrentDocumentType(null);
+                
+                setSnackbar({ 
+                  open: true, 
+                  message: 'Document uploaded successfully!', 
+                  severity: 'success' 
+                });
+              } catch (error) {
+                console.error('Error uploading file:', error);
+                setSnackbar({ 
+                  open: true, 
+                  message: 'Failed to upload document', 
+                  severity: 'error' 
+                });
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            disabled={!currentFile || isSubmitting}
+            fullWidth
+            sx={{ mt: 2 }}
+          >
+            {isSubmitting ? 'Uploading...' : 'Upload Document'}
+          </Button>
 
           {/* Uploaded Documents List */}
           <Box>
@@ -928,7 +994,10 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
       {/* Right Column - Passport Photo */}
       <Paper elevation={1} sx={{ p: 2, flex: 1 }}>
         <Stack spacing={3}>
-          <Typography variant="h6">Passport Photo</Typography>
+          <Typography variant="h6">Passport Photo *</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Passport photo is required for submission
+          </Typography>
           
           {/* File Upload for Passport Photo */}
           <Button
@@ -975,14 +1044,13 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
           <Button
   variant="contained"
   onClick={async () => {
-    if (!currentDocumentType || !currentFile) return;
+    if (currentDocumentType !== 'passport_photo' || !currentFile) return;
     
     try {
       setIsSubmitting(true);
       const arrayBuffer = await currentFile.arrayBuffer();
       const fileBytes = Array.from(new Uint8Array(arrayBuffer));
       
-      // This now returns full path
       const filePath = await invoke<string>('upload_student_file', {
         id: formData.id || studentId,
         fileName: currentFile.name,
@@ -991,7 +1059,7 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
       
       setUploadedDocuments(prev => ({
         ...prev,
-        [currentDocumentType]: filePath  // Store full path
+        passport_photo: filePath
       }));
       
       // Reset current selection
@@ -1001,15 +1069,15 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
       
       setSnackbar({ 
         open: true, 
-        message: 'Document uploaded successfully!', 
-        severity: 'success' 
+        message: 'Passport photo uploaded successfully! You can now submit the form.', 
+        severity: 'success',
       });
     } catch (error) {
-      console.error('Error uploading file:', error);
+      console.error('Error uploading passport photo:', error);
       setSnackbar({ 
         open: true, 
-        message: 'Failed to upload document', 
-        severity: 'error' 
+        message: 'Failed to upload passport photo. Please try again.', 
+        severity: 'error',
       });
     } finally {
       setIsSubmitting(false);
@@ -1019,7 +1087,7 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
   fullWidth
   sx={{ mt: 2 }}
 >
-  {isSubmitting ? 'Uploading...' : 'Upload Document'}
+  {isSubmitting ? 'Uploading...' : 'Upload Passport Photo'}
 </Button>
 
           {/* Uploaded Passport Photo Status */}
@@ -1040,7 +1108,9 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
                 />
               </Box>
             ) : (
-              <Typography variant="body2">No passport photo uploaded yet</Typography>
+              <Typography variant="body2" color="error">
+                Passport photo is required
+              </Typography>
             )}
           </Box>
         </Stack>
@@ -1094,14 +1164,13 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
             <Button disabled={activeStep === 0 || isSubmitting} onClick={handleBack}>Back</Button>
             {activeStep === 3
               ? (
-                <Button
-                  variant="contained"
-                  onClick={handleSubmit}
-                  size="large"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Saving...' : editingStudent ? 'Update' : 'Submit'}
-                </Button>
+               <Button
+  variant="contained"
+  onClick={handleSubmit}
+  size="large"
+>
+  {isSubmitting ? 'Saving...' : editingStudent ? 'Update' : 'Submit'}
+</Button>
               )
               : (
                 <Button
@@ -1114,13 +1183,20 @@ const [uploadedDocuments, setUploadedDocuments] = useState<Partial<StudentDocs>>
                 </Button>
               )}
           </Box>
-          <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-              {snackbar.message}
-            </Alert>
-          </Snackbar>
         </Card>
       </DashboardContent>
+
+      {/* Snackbar positioned at top center */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={3000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

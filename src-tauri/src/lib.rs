@@ -7,6 +7,7 @@ mod school;
 mod staff;
 mod students; 
 mod idcard; 
+mod academic_year; 
 
 use db::establish_connection;
 use log::error;
@@ -107,8 +108,12 @@ pub fn run() {
             image::save_image,
             image::get_image_path,
             image::delete_image,
-            // idcard commands
-            //  idcard::get_all_students_for_idcards,
+            // academic_year commands
+             academic_year::upsert_academic_year,
+             academic_year::get_current_academic_year,
+             academic_year::get_all_academic_years,
+             academic_year::set_current_academic_year,
+             academic_year::delete_academic_year,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

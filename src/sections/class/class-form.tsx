@@ -1,183 +1,232 @@
+
 import { useEffect, useState } from 'react';
 
-import Box from '@mui/material/Box';
-import Stack from '@mui/material/Stack';
-import Dialog from '@mui/material/Dialog';
-import Button from '@mui/material/Button';
-import MenuItem from '@mui/material/MenuItem';
-import TextField from '@mui/material/TextField';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
+import { 
+  Box, Stack, Alert, Dialog, Button, MenuItem, 
+  TextField, DialogTitle, DialogActions, DialogContent 
+} from '@mui/material';
 
-// Import the Class type from the view component to ensure consistency
+type AcademicYear = {
+  id: number;
+  academic_year: string;
+  status?: string;
+};
+
 type Class = {
-    id?: number;
-    class_name: string;
-    academic_year: string;
-    status?: string;
-    created_at?: string;
+  id?: number;
+  class_name: string;
+  academic_years: number;
+  status?: string;
+  academic_year_details?: AcademicYear;
 };
 
 type FormErrors = {
-    class_name?: string;
-    academic_year?: string;
+  class_name?: string;
+  academic_years?: string;
 };
 
 const INITIAL_VALUES: Class = {
-    class_name: '',
-    academic_year: '',
-    status: 'active',
+  class_name: '',
+  academic_years: 0,
+  status: 'active',
 };
 
-const ACADEMIC_YEARS = [
-    '2024-2025',
-    '2023-2024',
-    '2022-2023',
-];
-
 interface Props {
-    open: boolean;
-    onClose: () => void;
-    onSubmit: (formData: Class) => void;
-    currentClass?: Class | null;
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (formData: Class) => Promise<void>;
+  currentClass?: Class | null;
+  academicYears: AcademicYear[];
 }
 
-export function ClassForm({ open, onClose, onSubmit, currentClass }: Props) {
-    const [formData, setFormData] = useState<Class>(INITIAL_VALUES);
-    const [errors, setErrors] = useState<FormErrors>({});
-    const [touched, setTouched] = useState<Record<string, boolean>>({});
+export function ClassForm({ open, onClose, onSubmit, currentClass, academicYears }: Props) {
+  const [formData, setFormData] = useState<Class>(INITIAL_VALUES);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [errorMessage, setErrorMessage] = useState('');
 
-    useEffect(() => {
-        if (currentClass) {
-            setFormData(currentClass);
-        } else {
-            setFormData(INITIAL_VALUES);
+  useEffect(() => {
+    if (currentClass) {
+      setFormData({
+        ...currentClass,
+        academic_years: currentClass.academic_years || 0
+      });
+    } else {
+      setFormData(INITIAL_VALUES);
+    }
+    setErrors({});
+    setTouched({});
+    setErrorMessage('');
+  }, [currentClass, open]);
+
+  const validateField = (field: keyof Class, value: any) => {
+    if (field === 'class_name' && !value) {
+      return 'Class Name is required';
+    }
+    if (field === 'academic_years' && (!value || value === 0)) {
+      return 'Academic Year is required';
+    }
+    return '';
+  };
+
+  const handleChange = (field: keyof Class) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setFormData(prev => ({
+      ...prev,
+      [field]: field === 'academic_years' ? Number(value) : value
+    }));
+    if (touched[field]) {
+      setErrors(prev => ({
+        ...prev,
+        [field]: validateField(field, field === 'academic_years' ? Number(value) : value),
+      }));
+    }
+  };
+
+  const handleBlur = (field: keyof Class) => () => {
+    setTouched(prev => ({
+      ...prev,
+      [field]: true,
+    }));
+    setErrors(prev => ({
+      ...prev,
+      [field]: validateField(field, formData[field]),
+    }));
+  };
+
+  const validateForm = () => {
+    const newErrors: FormErrors = {};
+    let isValid = true;
+
+    if (!formData.class_name) {
+      newErrors.class_name = 'Class Name is required';
+      isValid = false;
+    }
+
+    if (!formData.academic_years || formData.academic_years === 0) {
+      newErrors.academic_years = 'Academic Year is required';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSubmit = async () => {
+  const allTouched = {
+    class_name: true,
+    academic_years: true
+  };
+  setTouched(allTouched);
+
+  if (!validateForm()) return;
+
+  await onSubmit({
+    class_name: formData.class_name.trim(),
+    academic_years: formData.academic_years,
+    status: formData.status || 'active',
+    ...(formData.id && { id: formData.id })
+  });
+};
+  const sortedAcademicYears = [...academicYears].sort((a, b) =>
+    b.academic_year.localeCompare(a.academic_year)
+  );
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
         }
-        // Reset errors and touched state when form opens/closes
-        setErrors({});
-        setTouched({});
-    }, [currentClass, open]);
+      }}
+    >
+      <DialogTitle sx={{ pb: 1 }}>
+        {currentClass ? 'Edit Class' : 'Add New Class'}
+      </DialogTitle>
 
-    const validateField = (field: keyof Class, value: string) => {
-        if (!value) {
-            return `${field.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} is required`;
-        }
-        return '';
-    };
+      <DialogContent>
+        <Box sx={{ mt: 2 }}>
+          <Stack spacing={3}>
+            {errorMessage && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {errorMessage}
+              </Alert>
+            )}
 
-    const handleChange = (field: keyof Class) => (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value;
-        setFormData((prev) => ({
-            ...prev,
-            [field]: value,
-        }));
+            <TextField
+              fullWidth
+              label="Class Name"
+              value={formData.class_name}
+              onChange={handleChange('class_name')}
+              onBlur={handleBlur('class_name')}
+              error={touched.class_name && Boolean(errors.class_name)}
+              helperText={touched.class_name && errors.class_name}
+              placeholder="e.g., Nursery, LKG, Grade 1"
+              size="small"
+            />
 
-        // Validate field if it's been touched
-        if (touched[field]) {
-            setErrors(prev => ({
-                ...prev,
-                [field]: validateField(field, value),
-            }));
-        }
-    };
-
-    const handleBlur = (field: keyof Class) => () => {
-        setTouched(prev => ({
-            ...prev,
-            [field]: true,
-        }));
-        setErrors(prev => ({
-            ...prev,
-            [field]: validateField(field, formData[field] as string),
-        }));
-    };
-
-    const validateForm = () => {
-        const newErrors: FormErrors = {};
-        let isValid = true;
-
-        // Validate required fields
-        if (!formData.class_name) {
-            newErrors.class_name = 'Class Name is required';
-            isValid = false;
-        }
-        if (!formData.academic_year) {
-            newErrors.academic_year = 'Academic Year is required';
-            isValid = false;
-        }
-
-        setErrors(newErrors);
-        return isValid;
-    };
-
-    const handleSubmit = () => {
-        // Mark all fields as touched
-        const allTouched = Object.keys(formData).reduce((acc, key) => ({
-            ...acc,
-            [key]: true,
-        }), {});
-        setTouched(allTouched);
-
-        if (validateForm()) {
-            onSubmit(formData);
-        }
-    };
-
-    return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{currentClass ? 'Edit Class' : 'Add New Class'}</DialogTitle>
-            <DialogContent>
-                <Box sx={{ mt: 2 }}>
-                    <Stack spacing={2}>
-                        <TextField
-                            fullWidth
-                            label="Class Name"
-                            value={formData.class_name}
-                            onChange={handleChange('class_name')}
-                            onBlur={handleBlur('class_name')}
-                            error={touched.class_name && Boolean(errors.class_name)}
-                            helperText={touched.class_name && errors.class_name}
-                            placeholder="e.g., Nursery, LKG, Grade 1"
-                        />
-                        <TextField
-                            select
-                            fullWidth
-                            label="Academic Year"
-                            value={formData.academic_year}
-                            onChange={handleChange('academic_year')}
-                            onBlur={handleBlur('academic_year')}
-                            error={touched.academic_year && Boolean(errors.academic_year)}
-                            helperText={touched.academic_year && errors.academic_year}
-                        >
-                            {ACADEMIC_YEARS.map((year) => (
-                                <MenuItem key={year} value={year}>
-                                    {year}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                        <TextField
-                            select
-                            fullWidth
-                            label="Status"
-                            value={formData.status || 'active'}
-                            onChange={handleChange('status')}
-                        >
-                            <MenuItem value="active">Active</MenuItem>
-                            <MenuItem value="inactive">Inactive</MenuItem>
-                        </TextField>
-                    </Stack>
-                </Box>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button
-                    variant="contained"
-                    onClick={handleSubmit}
+            <TextField
+              select
+              fullWidth
+              label="Academic Year"
+              value={formData.academic_years || ''}
+              onChange={handleChange('academic_years')}
+              onBlur={handleBlur('academic_years')}
+              error={touched.academic_years && Boolean(errors.academic_years)}
+              helperText={touched.academic_years && errors.academic_years}
+              size="small"
+            >
+              <MenuItem value="" disabled>
+                Select Academic Year
+              </MenuItem>
+              {sortedAcademicYears.map((year) => (
+                <MenuItem
+                  key={year.id}
+                  value={year.id}
+                  sx={{ fontSize: '0.875rem' }}
                 >
-                    {currentClass ? 'Update' : 'Add'}
-                </Button>
-            </DialogActions>
-        </Dialog>
-    );
-} 
+                  {year.academic_year}
+                  {year.status === 'inactive' && ' (Inactive)'}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              label="Status"
+              value={formData.status || 'active'}
+              onChange={handleChange('status')}
+              size="small"
+            >
+              <MenuItem value="active" sx={{ fontSize: '0.875rem' }}>Active</MenuItem>
+              <MenuItem value="inactive" sx={{ fontSize: '0.875rem' }}>Inactive</MenuItem>
+            </TextField>
+          </Stack>
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 3, pt: 0 }}>
+        <Button
+          onClick={onClose}
+          variant="outlined"
+          sx={{ borderRadius: 1 }}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          sx={{ borderRadius: 1 }}
+          disabled={!formData.class_name || !formData.academic_years}
+        >
+          {currentClass ? 'Update Class' : 'Add Class'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}

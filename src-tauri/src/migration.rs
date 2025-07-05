@@ -10,6 +10,6 @@ pub fn run_migrations(conn: &Connection) -> Result<(), Box<dyn std::error::Error
     crate::class::init_class_table(conn)?;
     crate::staff::init_staff_table(conn)?;
     crate::students::init_student_table(conn)?;
-
+    crate::academic_year::init_academic_year_table(conn)?;
     Ok(())
 }

@@ -1,3 +1,4 @@
+// overview-analytics-view.tsx
 import { invoke } from '@tauri-apps/api/core';
 import { useContext, useState, useEffect } from 'react';
 
@@ -22,7 +23,6 @@ import { AnalyticsClassSummary } from '../analytics-class-summary';
 import { AnalyticsWidgetSummary, SchoolBanner } from '../analytics-widget-summary';
 
 // ----------------------------------------------------------------------
-
 
 type Student = {
   id: number;
@@ -69,6 +69,7 @@ type Student = {
   vaccination_certificate?: string;
   other_documents?: string;
 };
+
 type StudentData = {
   total: number;
   active: number;
@@ -80,6 +81,7 @@ type StudentData = {
   female: number;
   otherGender: number;
 };
+
 function StudentsWidget() {
   const [loading, setLoading] = useState(true);
   const [studentData, setStudentData] = useState<StudentData>({
@@ -172,6 +174,22 @@ function StudentsWidget() {
   );
 }
 
+type Class = {
+  id?: number;
+  class_name: string;
+  academic_years: number;
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
+  academic_year_details?: {
+    id?: number;
+    academic_year: string;
+    status?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+};
+
 type ClassData = {
   total: number;
   active: number;
@@ -180,6 +198,7 @@ type ClassData = {
   trend: number[];
   growthPercent: number;
 };
+
 function ClassesWidget() {
   const [loading, setLoading] = useState(true);
   const [classData, setClassData] = useState<ClassData>({
@@ -194,7 +213,9 @@ function ClassesWidget() {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        const classes = await invoke<any[]>('get_all_classes');
+        // Use the existing get_all_classes command
+        const classes = await invoke<Class[]>('get_all_classes');
+        
         const currentYear = '2024-2025'; // Current academic year
 
         const summaryData = classes.reduce(
@@ -202,7 +223,7 @@ function ClassesWidget() {
             total: acc.total + 1,
             active: acc.active + (cls.status === 'active' ? 1 : 0),
             inactive: acc.inactive + (cls.status !== 'active' ? 1 : 0),
-            currentYear: acc.currentYear + (cls.academic_year === currentYear ? 1 : 0),
+            currentYear: acc.currentYear + (cls.academic_year_details?.academic_year === currentYear ? 1 : 0),
           }),
           { total: 0, active: 0, inactive: 0, currentYear: 0 }
         );
@@ -241,12 +262,8 @@ function ClassesWidget() {
     fetchClasses();
   }, []);
 
-
-
-
-
   if (loading) {
-    return null; // or a loading spinner
+    return null;
   }
 
   return (
@@ -366,6 +383,7 @@ function StaffWidget() {
     />
   );
 }
+
 type EnquiryData = {
   total: number;
   new: number;
@@ -462,10 +480,10 @@ function EnquiriesWidget() {
 }
 
 export default function () {
-
   const [schoolData, setSchoolData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  
   useEffect(() => {
     const fetchSchoolData = async () => {
       const schoolId = localStorage.getItem('school_id');
@@ -481,23 +499,21 @@ export default function () {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-
-
         setSchoolData(data);
       } catch (err) {
         if (err instanceof Error) {
           setError(err.message);
         } else {
-          setError(String(err)); // fallback for unknown error types
+          setError(String(err));
         }
-      }
-      finally {
+      } finally {
         setLoading(false);
       }
     };
 
     fetchSchoolData();
   }, []);
+
   return (
     <DashboardContent maxWidth="xl">
       <Typography variant="h4" sx={{ mb: { xs: 3, md: 5 } }}>
@@ -513,7 +529,6 @@ export default function () {
           />
         </Grid>
 
-
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StudentsWidget />
         </Grid>
@@ -521,9 +536,6 @@ export default function () {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <ClassesWidget />
         </Grid>
-
-
-
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StaffWidget />
@@ -536,78 +548,6 @@ export default function () {
         <Grid size={{ xs: 12, md: 12 }}>
           <AnalyticsClassSummary />
         </Grid>
-        {/* <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsCurrentVisits
-            title="Current visits"
-            chart={{
-              series: [
-                { label: 'America', value: 3500 },
-                { label: 'Asia', value: 2500 },
-                { label: 'Europe', value: 1500 },
-                { label: 'Africa', value: 500 },
-              ],
-            }}
-          />
-        </Grid> */}
-
-        {/* <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsWebsiteVisits
-            title="Website visits"
-            subheader="(+43%) than last year"
-            chart={{
-              categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'],
-              series: [
-                { name: 'Team A', data: [43, 33, 22, 37, 67, 68, 37, 24, 55] },
-                { name: 'Team B', data: [51, 70, 47, 67, 40, 37, 24, 70, 24] },
-              ],
-            }}
-          />
-        </Grid> */}
-
-        {/* <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsConversionRates
-            title="Class Status Overview"
-            subheader="Current Academic Year"
-            chart={{
-              categories: ['Active', 'Inactive', 'On Break', 'Upcoming', 'Completed'],
-              series: [
-                { name: 'Current Term', data: [25, 5, 2, 3, 0] },
-                { name: 'Previous Term', data: [20, 3, 4, 8, 15] },
-              ],
-            }}
-          />
-        </Grid> */}
-
-        {/* <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsCurrentSubject
-            title="Current subject"
-            chart={{
-              categories: ['English', 'History', 'Physics', 'Geography', 'Chinese', 'Math'],
-              series: [
-                { name: 'Series 1', data: [80, 50, 30, 40, 100, 20] },
-                { name: 'Series 2', data: [20, 30, 40, 80, 20, 80] },
-                { name: 'Series 3', data: [44, 76, 78, 13, 43, 10] },
-              ],
-            }}
-          />
-        </Grid> */}
-        {/* 
-        <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsNews title="News" list={_posts.slice(0, 5)} />
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsOrderTimeline title="Order timeline" list={_timeline} />
-        </Grid> */}
-
-        {/* <Grid size={{ xs: 12, md: 6, lg: 4 }}>
-          <AnalyticsTrafficBySite title="Traffic by site" list={_traffic} />
-        </Grid> */}
-
-        {/* <Grid size={{ xs: 12, md: 6, lg: 8 }}>
-          <AnalyticsTasks title="Tasks" list={_tasks} />
-        </Grid> */}
-
       </Grid>
     </DashboardContent>
   );

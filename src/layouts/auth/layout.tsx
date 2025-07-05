@@ -3,12 +3,10 @@ import type { CSSObject, Breakpoint } from '@mui/material/styles';
 import { merge } from 'es-toolkit';
 
 import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
+import { useTheme } from '@mui/material/styles';
 
-import { RouterLink } from 'src/routes/components';
-
-import { Logo } from 'src/components/logo';
+import { Settings } from 'src/components/settings';
 
 import { AuthContent } from './content';
 import { MainSection } from '../core/main-section';
@@ -40,6 +38,8 @@ export function AuthLayout({
   slotProps,
   layoutQuery = 'md',
 }: AuthLayoutProps) {
+  const theme = useTheme();
+
   const renderHeader = () => {
     const headerSlotProps: HeaderSectionProps['slotProps'] = {
       container: { maxWidth: false },
@@ -82,12 +82,12 @@ export function AuthLayout({
       <MainSection
         {...slotProps?.main}
         sx={[
-          (theme) => ({
+          (muiTheme) => ({ // Renamed to avoid shadowing the outer theme variable
             display: 'flex',
             flexDirection: 'row',
             height: '100vh',
             overflow: 'hidden',
-            [theme.breakpoints.down(layoutQuery)]: {
+            [muiTheme.breakpoints.down(layoutQuery)]: {
               flexDirection: 'column',
             },
           }),
@@ -154,23 +154,35 @@ export function AuthLayout({
   };
 
   return (
-    <LayoutSection
-      headerSection={renderHeader()}
-      footerSection={renderFooter()}
-      cssVars={{ '--layout-auth-content-width': '420px', ...cssVars }}
-      sx={[
-        {
-          position: 'relative',
-          minHeight: '100vh',
-          backgroundImage: 'url(/assets/background_img.jpg)', // ✅ Full-page background
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        },
-        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
-      ]}
-    >
-      {renderMain()}
-    </LayoutSection>
+    <>
+      <LayoutSection
+        headerSection={renderHeader()}
+        footerSection={renderFooter()}
+        cssVars={{ '--layout-auth-content-width': '420px', ...cssVars }}
+        sx={[
+          {
+            position: 'relative',
+            minHeight: '100vh',
+            backgroundImage: 'url(/assets/background_img.jpg)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          },
+          ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+        ]}
+      >
+        {renderMain()}
+      </LayoutSection>
+      <Box
+        sx={{
+          position: 'fixed',
+          right: 16,
+          bottom: 16,
+          zIndex: theme.zIndex.speedDial,
+        }}
+      >
+        <Settings />
+      </Box>
+    </>
   );
 }
