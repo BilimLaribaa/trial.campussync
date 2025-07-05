@@ -88,6 +88,8 @@ export function StudentView() {
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'unsupported'>('unsupported');
   const [previewFileName, setPreviewFileName] = useState('');
   const [downloadStatus, setDownloadStatus] = useState<{ success: boolean, message: string } | null>(null);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleDelete = async () => {
     if (!selectedStudentId) return;
@@ -186,7 +188,7 @@ export function StudentView() {
           invoke<{ id: string, class_name: string }[]>('get_all_classes'),
           invoke<Student[]>('get_students', { id: null })
         ]);
-console.log(studentsData);
+// console.log(studentsData);
 
         const newClassMap = classes.reduce((acc, cls) => ({ ...acc, [cls.id]: cls.class_name }), {} as Record<string, string>);
         
@@ -254,6 +256,83 @@ console.log(studentsData);
     </DashboardContent>
   );
 
+
+ const handleImportClick = () => {
+  setImportDialogOpen(true);
+};
+const handleDownloadTemplate = async () => {
+  try {
+    // Directly use the public URL path
+    const publicPath = '/assets/Student_Data.xlsx';
+    const response = await fetch(publicPath);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch template');
+    }
+    
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Student_Import_Template.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    console.log("Template downloaded successfully");
+  } catch (err) {
+    console.error("Failed to download template:", err);
+    setError('Failed to download template file. Make sure Student_Data.xlsx exists in public/assets/');
+  }
+};
+
+const handleImportStudents = () => {
+  console.log("Student adding in process");
+  // Here you would typically add your import logic
+};
+const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Validate file type
+  const validExtensions = ['.xlsx', '.xls'];
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  
+  if (!fileExtension || !validExtensions.includes(`.${fileExtension}`)) {
+    alert('Please select a valid Excel file (.xls or .xlsx)');
+    return;
+  }
+
+  setSelectedFile(file);
+};
+
+const handleFileUpload = async () => {
+  if (!selectedFile) return;
+
+  try {
+    const arrayBuffer = await selectedFile.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+
+    const result = await invoke<number>('import_students_excel', {
+      fileBytes: Array.from(bytes),
+      fileName: selectedFile.name
+    });
+
+    alert(`${result} students imported successfully!`);
+    
+    // Refresh student list
+    const studentsData = await invoke<Student[]>('get_students', { id: null });
+    setStudents(studentsData);
+    setImportDialogOpen(false);
+    setSelectedFile(null);
+
+  } catch (err) {
+    console.error('Import failed:', err);
+    alert(`Failed to import students: ${err instanceof Error ? err.message : String(err)}`);
+  }
+};
+
   return (
     <DashboardContent>
       <Stack spacing={2}>
@@ -262,6 +341,13 @@ console.log(studentsData);
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="h5" fontWeight={700}>Student Management</Typography>
           <Stack direction="row" spacing={2}>
+            <Button 
+  variant="contained" 
+  color="success" 
+  onClick={handleImportClick}
+>
+  Import Student
+</Button>
             <Button variant="contained" onClick={() => navigate('/dashboard/student/add')}>Add Student</Button>
             <Button variant="outlined" disabled={!selectedStudentId} onClick={() => navigate(`/dashboard/student/add/${selectedStudentId}`)}>Edit</Button>
             <Button variant="outlined" color="error" disabled={!selectedStudentId} onClick={handleDelete}>Delete</Button>
@@ -542,6 +628,53 @@ console.log(studentsData);
           </Button>
         </DialogActions>
       </Dialog>
+     <Dialog open={importDialogOpen} onClose={() => setImportDialogOpen(false)}>
+  <DialogTitle>Import Students</DialogTitle>
+  <DialogContent>
+    <Typography variant="body1" sx={{ mb: 2 }}>
+      Download the template file, fill in student data, then import it.
+    </Typography>
+    <input
+      type="file"
+      id="student-import-file"
+      accept=".xlsx,.xls"
+      style={{ display: 'none' }}
+      onChange={handleFileSelect}
+    />
+    <label htmlFor="student-import-file">
+      <Button 
+        variant="contained" 
+        component="span"
+        sx={{ mt: 2 }}
+      >
+        Select Excel File
+      </Button>
+    </label>
+    {selectedFile && (
+      <Typography variant="body2" sx={{ mt: 2 }}>
+        Selected: {selectedFile.name}
+      </Typography>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button 
+      variant="contained" 
+      color="primary" 
+      onClick={handleDownloadTemplate}
+      startIcon={<DownloadIcon />}
+    >
+      Download Template
+    </Button>
+    <Button 
+      variant="contained" 
+      color="success" 
+      onClick={handleFileUpload}
+      disabled={!selectedFile}
+    >
+      Import Students
+    </Button>
+  </DialogActions>
+</Dialog>
     </DashboardContent>
   );
 }

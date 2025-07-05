@@ -4,8 +4,10 @@ import { merge } from 'es-toolkit';
 
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
+import { IconButton } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 
+import { Iconify } from 'src/components/iconify';
 import { Settings } from 'src/components/settings';
 
 import { AuthContent } from './content';
@@ -17,8 +19,6 @@ import type { AuthContentProps } from './content';
 import type { MainSectionProps } from '../core/main-section';
 import type { HeaderSectionProps } from '../core/header-section';
 import type { LayoutSectionProps } from '../core/layout-section';
-import { IconButton } from '@mui/material';
-import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -212,12 +212,12 @@ export function AuthLayout({
           size="small"
           sx={{
             bgcolor: 'background.default',
-            boxShadow: (theme) => theme.shadows[2],
+            boxShadow: (shadowTheme) => shadowTheme.shadows[2],
             width: 40,
             height: 40,
             '&:hover': {
               bgcolor: 'background.neutral',
-              boxShadow: (theme) => theme.shadows[8],
+              boxShadow: (shadowTheme) => shadowTheme.shadows[8],
             },
         
             transition: 'transform 0.3s ease-in-out',
