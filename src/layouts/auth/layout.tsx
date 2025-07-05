@@ -17,6 +17,8 @@ import type { AuthContentProps } from './content';
 import type { MainSectionProps } from '../core/main-section';
 import type { HeaderSectionProps } from '../core/header-section';
 import type { LayoutSectionProps } from '../core/layout-section';
+import { IconButton } from '@mui/material';
+import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -73,6 +75,19 @@ export function AuthLayout({
   };
 
   const renderFooter = () => null;
+
+  const changeproxy = () => {
+    const input = window.prompt('Enter the backend IP or domain (e.g., http://localhost:8000 or https://yourdomain.com):');
+    if (input && input.trim()) {
+      localStorage.setItem('backend_api', input.trim());
+      alert('Backend API set to: ' + input.trim() + '\nReloading the page...');
+      window.location.reload();
+    } else {
+      localStorage.removeItem('backend_api');
+      alert('Backend API has been cleared. Reloading the page...');
+      window.location.reload();
+    }
+  };
 
   const renderMain = () => {
     const mainSx = slotProps?.main?.sx;
@@ -181,7 +196,36 @@ export function AuthLayout({
           zIndex: theme.zIndex.speedDial,
         }}
       >
-        <Settings />
+        {/* <Settings /> */}
+
+
+        <Box
+        sx={{
+          position: 'fixed',
+          bottom: 16,
+          left: 16,
+          zIndex: 9999,
+        }}
+      >
+        <IconButton
+     onClick={changeproxy}
+          size="small"
+          sx={{
+            bgcolor: 'background.default',
+            boxShadow: (theme) => theme.shadows[2],
+            width: 40,
+            height: 40,
+            '&:hover': {
+              bgcolor: 'background.neutral',
+              boxShadow: (theme) => theme.shadows[8],
+            },
+        
+            transition: 'transform 0.3s ease-in-out',
+          }}
+        >
+          <Iconify icon="solar:settings-bold-duotone" width={24} />
+        </IconButton>
+      </Box>
       </Box>
     </>
   );

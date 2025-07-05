@@ -80,6 +80,7 @@ export function ClassView() {
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [errorStatus, setErrorStatus] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<Set<keyof DisplayClass>>(
     new Set(['class_name', 'academic_year', 'status'])
   );
@@ -100,6 +101,7 @@ export function ClassView() {
     } catch (error) {
       console.error('Error fetching classes:', error);
       setSuccessMessage('Failed to fetch classes');
+      setErrorStatus(true);
       setShowToast(true);
     }
   };
@@ -111,6 +113,7 @@ export function ClassView() {
     } catch (error) {
       console.error('Error fetching academic years:', error);
       setSuccessMessage('Failed to fetch academic years');
+      setErrorStatus(true);
       setShowToast(true);
     }
   };
@@ -148,13 +151,15 @@ export function ClassView() {
         });
         console.log("success");
         
-        // setSuccessMessage('Class added successfully!');
+        setSuccessMessage('Class added successfully!');
+        setErrorStatus(false);
       }
       setShowToast(true);
       fetchClasses();
       handleClose();
     } catch (error: any) {
-      setSuccessMessage(error.message || 'Failed to save class');
+      setSuccessMessage(error || 'Failed to save class');
+      setErrorStatus(true);
       setShowToast(true);
     }
   };
@@ -164,11 +169,13 @@ export function ClassView() {
       try {
         await invoke('delete_class', { id: selectedClass.id });
         setSuccessMessage('Class deleted successfully!');
+        setErrorStatus(false);
         setShowToast(true);
         fetchClasses();
       } catch (error) {
         console.error('Error deleting class:', error);
         setSuccessMessage('Failed to delete class');
+        setErrorStatus(true);
         setShowToast(true);
       }
     }
@@ -408,7 +415,7 @@ export function ClassView() {
       >
         <Alert
           onClose={() => setShowToast(false)}
-          severity={successMessage.includes('Failed') ? 'error' : 'success'}
+          severity={errorStatus ? 'error' : 'success'}
           sx={{ width: '100%' }}
         >
           {successMessage}

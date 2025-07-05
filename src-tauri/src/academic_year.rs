@@ -27,6 +27,11 @@ pub fn init_academic_year_table(conn: &Connection) -> rusqlite::Result<()> {
         )",
         [],
     )?;
+    // Insert default year 2024 - 2025 as active if not exists
+    conn.execute(
+        "INSERT OR IGNORE INTO academic_years (academic_year, status) VALUES (?1, ?2)",
+        [&"2024 - 2025", &"active"],
+    )?;
     Ok(())
 }
 

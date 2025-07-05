@@ -7,7 +7,8 @@ import {
   Box, Card, Stack, Button, Typography, Avatar, TextField,
   ListItemText, ListItemAvatar, ListItem, ListItemButton, List,
   ToggleButton, ToggleButtonGroup, Alert, Dialog,
-  DialogTitle, DialogContent, DialogActions
+  DialogTitle, DialogContent, DialogActions,
+  Table, TableBody, TableCell, TableContainer, TableRow, TableHead,
 } from '@mui/material';
 
 import { DashboardContent } from 'src/layouts/dashboard';
@@ -237,20 +238,6 @@ console.log(studentsData);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
 
-  const InfoRow = ({ label, value }: { label: string; value?: string | null }) => (
-    <Stack direction="row" justifyContent="space-between">
-      <Typography variant="body2" fontWeight={500}>{label}</Typography>
-      <Typography variant="body2">{value || '-'}</Typography>
-    </Stack>
-  );
-
-  const InfoRowWithLink = ({ label, documentKey }: { label: string; documentKey: keyof DocumentUrls }) => (
-    <Stack direction="row" justifyContent="space-between" alignItems="center">
-      <Typography variant="body2" fontWeight={500}>{label}</Typography>
-      {renderDocumentLink(label, documentKey)}
-    </Stack>
-  );
-
   if (loading) return (
     <DashboardContent>
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -355,69 +342,169 @@ console.log(studentsData);
               </Box>
             </Box>
 
-            <Box maxWidth={560} mx="auto" mt={-2} px={3} pb={3} ref={infoRef}>
+            <Box mx="5" mt={-2} ref={infoRef} sx={{ px: 4 }}>
               {selectedStudent ? (
                 <>
                   {infoTab === 'general' && (
-                    <Stack spacing={1.25} pt={1}>
+                    <>
                       <Typography fontWeight={600} mb={1} fontSize={16}>General Information</Typography>
-                      <InfoRow label="GR Number" value={selectedStudent.gr_number} />
-                      <InfoRow label="Roll Number" value={selectedStudent.roll_number} />
-                      <InfoRow label="Full Name" value={selectedStudent.full_name} />
-                      <InfoRow label="Date of Birth" value={selectedStudent.dob} />
-                      <InfoRow label="Gender" value={selectedStudent.gender} />
-                      <InfoRow label="Mother's Name" value={selectedStudent.mother_name} />
-                      <InfoRow label="Mother's Occupation" value={selectedStudent.mother_occupation} />
-                      <InfoRow label="Father's Name" value={selectedStudent.father_name} />
-                      <InfoRow label="Father's Occupation" value={selectedStudent.father_occupation} />
-                      <InfoRow label="Annual Income" value={selectedStudent.annual_income !== undefined ? `$${selectedStudent.annual_income}` : '-'} />
-                      <InfoRow label="Nationality" value={selectedStudent.nationality} />
-                      <InfoRow label="Class" value={classMap[selectedStudent.class_id] || `Class ${selectedStudent.class_id}`} />
-                      <InfoRow label="Section" value={selectedStudent.section} />
-                      <InfoRow label="Academic Year" value={selectedStudent.academic_year} />
-                    </Stack>
+                      <TableContainer>
+                        <Table >
+                          <TableBody>
+                            {(() => {
+                              const fields = [
+                                ['GR Number', selectedStudent.gr_number],
+                                ['Roll Number', selectedStudent.roll_number],
+                                ['Full Name', selectedStudent.full_name],
+                                ['Date of Birth', selectedStudent.dob],
+                                ['Gender', selectedStudent.gender],
+                                ['Class', classMap[selectedStudent.class_id] || `Class ${selectedStudent.class_id}`],
+                                ["Mother's Name", selectedStudent.mother_name],
+                                ["Mother's Occupation", selectedStudent.mother_occupation],
+                                ["Father's Name", selectedStudent.father_name],
+                                ["Father's Occupation", selectedStudent.father_occupation],
+                                ['Annual Income', selectedStudent.annual_income !== undefined && selectedStudent.annual_income !== null ? `$${selectedStudent.annual_income}` : selectedStudent.annual_income === 0 ? '$0' : '-'],
+                                ['Nationality', selectedStudent.nationality],
+                                ['Section', selectedStudent.section],
+                                ['Academic Year', selectedStudent.academic_year],
+                              ];
+                              const rows = [];
+                              for (let i = 0; i < fields.length; i += 2) {
+                                const [label1, value1] = fields[i];
+                                const pair = fields[i + 1];
+                                const label2 = pair ? pair[0] : '';
+                                const value2 = pair ? pair[1] : '';
+                                rows.push(
+                                  <TableRow key={label1} sx={{ backgroundColor: (i/2) % 2 === 0 ? 'action.hover' : 'background.paper' }}>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{label1}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{value1 || '-'}</TableCell>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{label2}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{value2 || '-'}</TableCell>
+                                  </TableRow>
+                                );
+                              }
+                              return rows;
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </>
                   )}
 
                   {infoTab === 'contact' && (
-                    <Stack spacing={1.25} pt={1}>
+                    <>
                       <Typography fontWeight={600} mb={1} fontSize={16}>Contact Information</Typography>
-                      <InfoRow label="Email" value={selectedStudent.email} />
-                      <InfoRow label="Mobile Number" value={selectedStudent.mobile_number} />
-                      <InfoRow label="Alternate Contact" value={selectedStudent.alternate_contact_number} />
-                      <InfoRow label="Address" value={selectedStudent.address} />
-                      <InfoRow label="City" value={selectedStudent.city} />
-                      <InfoRow label="State" value={selectedStudent.state} />
-                      <InfoRow label="Country" value={selectedStudent.country} />
-                      <InfoRow label="Postal Code" value={selectedStudent.postal_code} />
-                      <InfoRow label="Guardian Contact Info" value={selectedStudent.guardian_contact_info} />
-                    </Stack>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableBody>
+                            {(() => {
+                              const fields = [
+                                ['Email', selectedStudent.email],
+                                ['Mobile Number', selectedStudent.mobile_number],
+                                ['Alternate Contact', selectedStudent.alternate_contact_number],
+                                ['Address', selectedStudent.address],
+                                ['City', selectedStudent.city],
+                                ['State', selectedStudent.state],
+                                ['Country', selectedStudent.country],
+                                ['Postal Code', selectedStudent.postal_code],
+                                ['Guardian Contact Info', selectedStudent.guardian_contact_info],
+                              ];
+                              const rows = [];
+                              for (let i = 0; i < fields.length; i += 2) {
+                                const [label1, value1] = fields[i];
+                                const pair = fields[i + 1];
+                                const label2 = pair ? pair[0] : '';
+                                const value2 = pair ? pair[1] : '';
+                                rows.push(
+                                  <TableRow key={label1} sx={{ backgroundColor: (i/2) % 2 === 0 ? 'action.hover' : 'background.paper' }}>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{label1}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{value1 || '-'}</TableCell>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{label2}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{value2 || '-'}</TableCell>
+                                  </TableRow>
+                                );
+                              }
+                              return rows;
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </>
                   )}
 
                   {infoTab === 'health' && (
-                    <Stack spacing={1.25} pt={1}>
+                    <>
                       <Typography fontWeight={600} mb={1} fontSize={16}>Health & Admission</Typography>
-                      <InfoRow label="Blood Group" value={selectedStudent.blood_group} />
-                      <InfoRow label="Status" value={selectedStudent.status} />
-                      <InfoRow label="Admission Date" value={selectedStudent.admission_date} />
-                      <InfoRow label="Weight (kg)" value={selectedStudent.weight_kg?.toString()} />
-                      <InfoRow label="Height (cm)" value={selectedStudent.height_cm?.toString()} />
-                      <InfoRow label="HB Range" value={selectedStudent.hb_range} />
-                      <InfoRow label="Medical Conditions" value={selectedStudent.medical_conditions} />
-                      <InfoRow label="Emergency Contact Person" value={selectedStudent.emergency_contact_person} />
-                      <InfoRow label="Emergency Contact" value={selectedStudent.emergency_contact} />
-                      <InfoRow label="Vaccination Certificate" value={selectedStudent.vaccination_certificate} />
-                    </Stack>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableBody>
+                            {(() => {
+                              const fields = [
+                                ['Blood Group', selectedStudent.blood_group],
+                                ['Status', selectedStudent.status],
+                                ['Admission Date', selectedStudent.admission_date],
+                                ['Weight (kg)', selectedStudent.weight_kg?.toString()],
+                                ['Height (cm)', selectedStudent.height_cm?.toString()],
+                                ['HB Range', selectedStudent.hb_range],
+                                ['Medical Conditions', selectedStudent.medical_conditions],
+                                ['Emergency Contact Person', selectedStudent.emergency_contact_person],
+                                ['Emergency Contact', selectedStudent.emergency_contact],
+                                ['Vaccination Certificate', selectedStudent.vaccination_certificate],
+                              ];
+                              const rows = [];
+                              for (let i = 0; i < fields.length; i += 2) {
+                                const [label1, value1] = fields[i];
+                                const pair = fields[i + 1];
+                                const label2 = pair ? pair[0] : '';
+                                const value2 = pair ? pair[1] : '';
+                                rows.push(
+                                  <TableRow key={label1} sx={{ backgroundColor: (i/2) % 2 === 0 ? 'action.hover' : 'background.paper' }}>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{label1}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{value1 || '-'}</TableCell>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{label2}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{value2 || '-'}</TableCell>
+                                  </TableRow>
+                                );
+                              }
+                              return rows;
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </>
                   )}
 
                   {infoTab === 'documents' && (
-                    <Stack spacing={1.25} pt={1}>
+                    <>
                       <Typography fontWeight={600} mb={1} fontSize={16}>Documents</Typography>
-                      {(['birth_certificate', 'transfer_certificate', 'previous_academic_records', 'address_proof',
-                        'id_proof', 'passport_photo', 'medical_certificate', 'vaccination_certificate',
-                        'other_documents'] as const).map((docKey) => (
-                          <InfoRowWithLink key={docKey} label={docKey.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')} documentKey={docKey} />
-                        ))}
-                    </Stack>
+                      <TableContainer>
+                        <Table size="small">
+                          <TableBody>
+                            {(() => {
+                              const docKeys = [
+                                'birth_certificate', 'transfer_certificate', 'previous_academic_records', 'address_proof',
+                                'id_proof', 'passport_photo', 'medical_certificate', 'vaccination_certificate',
+                                'other_documents'
+                              ];
+                              const rows = [];
+                              for (let i = 0; i < docKeys.length; i += 2) {
+                                const docKey1 = docKeys[i];
+                                const docKey2 = docKeys[i + 1];
+                                rows.push(
+                                  <TableRow key={docKey1} sx={{ backgroundColor: (i/2) % 2 === 0 ? 'action.hover' : 'background.paper' }}>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{docKey1.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ')}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{renderDocumentLink(docKey1.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' '), docKey1 as keyof DocumentUrls)}</TableCell>
+                                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>{docKey2 ? docKey2.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' ') : ''}</TableCell>
+                                    <TableCell sx={{ width: '32%' }}>{docKey2 ? renderDocumentLink(docKey2.split('_').map(w => w[0].toUpperCase() + w.slice(1)).join(' '), docKey2 as keyof DocumentUrls) : ''}</TableCell>
+                                  </TableRow>
+                                );
+                              }
+                              return rows;
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </>
                   )}
                 </>
               ) : (
