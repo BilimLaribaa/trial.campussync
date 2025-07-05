@@ -40,6 +40,7 @@ pub struct StudentCore {
     pub class_id: String,
     pub section: Option<String>,
     pub academic_year: Option<String>,
+    pub class_name: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -103,23 +104,25 @@ pub fn get_students(
     // Base query - same for both cases
     let mut query = String::from(
         "SELECT
-            id,
-            gr_number, roll_number, full_name, dob, gender,
-            mother_name, father_name, father_occupation, mother_occupation, annual_income,
-            nationality, profile_image, class_id, section, academic_year,
-            email, mobile_number, alternate_contact_number,
-            address, city, state, country, postal_code, guardian_contact_info,
-            blood_group, status, admission_date, weight_kg, height_cm, hb_range,
-            medical_conditions, emergency_contact_person, emergency_contact,
-            birth_certificate, transfer_certificate, previous_academic_records,
-            address_proof, id_proof, passport_photo, medical_certificate,
-            vaccination_certificate, other_documents
-         FROM students",
+            students.id,
+            students.gr_number, students.roll_number, students.full_name, students.dob, students.gender,
+            students.mother_name, students.father_name, students.father_occupation, students.mother_occupation, students.annual_income,
+            students.nationality, students.profile_image, students.class_id, students.section, students.academic_year,
+            students.email, students.mobile_number, students.alternate_contact_number,
+            students.address, students.city, students.state, students.country, students.postal_code, students.guardian_contact_info,
+            students.blood_group, students.status, students.admission_date, students.weight_kg, students.height_cm, students.hb_range,
+            students.medical_conditions, students.emergency_contact_person, students.emergency_contact,
+            students.birth_certificate, students.transfer_certificate, students.previous_academic_records,
+            students.address_proof, students.id_proof, students.passport_photo, students.medical_certificate,
+            students.vaccination_certificate, students.other_documents,
+            classes.class_name
+         FROM students
+         LEFT JOIN classes ON students.class_id = classes.id"
     );
 
     // Add WHERE clause if ID is provided
     if id.is_some() {
-        query.push_str(" WHERE id = ?1");
+        query.push_str(" WHERE students.id = ?1");
     }
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
@@ -150,6 +153,7 @@ pub fn get_students(
                 nationality: row.get(11)?,
                 profile_image: row.get(12)?,
                 class_id: row.get(13)?,
+                class_name: row.get(43)?,
                 section: row.get(14)?,
                 academic_year: row.get(15)?,
             },
