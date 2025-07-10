@@ -61,7 +61,7 @@ const ClassCard = ({
   onToggleStatus: (id?: number) => void;
   onEdit: () => void;
 }) => (
-  <Card sx={{ width: '100%', maxWidth: 300, m: 1 }}>
+  <Card sx={{ width: '100%', maxWidth: 300, m: 0 }}>
     <CardContent>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h6">{classItem.class_name}</Typography>
@@ -105,7 +105,7 @@ export function ClassView() {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(12);
   const [orderBy, setOrderBy] = useState<keyof DisplayClass>('class_name');
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [openDialog, setOpenDialog] = useState(false);

@@ -1,7 +1,8 @@
 import type { BoxProps } from '@mui/material/Box';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { varAlpha } from 'minimal-shared/utils';
+import { useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Slide from '@mui/material/Slide';
@@ -12,9 +13,9 @@ import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 
-import { Iconify } from 'src/components/iconify';
 import { useStudentSearch } from 'src/contexts/StudentSearchContext';
-import { useNavigate } from 'react-router-dom';
+
+import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
