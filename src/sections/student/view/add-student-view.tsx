@@ -320,7 +320,7 @@ const [passportUploaded, setPassportUploaded] = useState(false);
       const numericId = parseInt(id || '', 10);
 
       try {
-        const classes = await invoke<{ id: number, class_name: string }[]>('get_all_classes');
+        const classes = await invoke<{ id: number, class_name: string }[]>('get_active_classes');
         setClassOptions(classes);
 
         if (!editingStudent && id) {

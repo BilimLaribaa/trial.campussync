@@ -45,21 +45,29 @@ export function IdCardView() {
   const [showToast, setShowToast] = useState(false);
 
   // Filtered students based on class and search
-  const filteredStudents = useMemo(() => students
-  .filter(
-    (student) =>
-      !selectedClass || student.class_id.toString() === selectedClass
-  )
-  .filter(
-    (student) =>
-      student.full_name.toLowerCase().includes(search.toLowerCase()) ||
-      student.gr_number.toLowerCase().includes(search.toLowerCase())
-  ), [students, selectedClass, search]);
-
+  const filteredStudents = useMemo(() => {
+    let result = students;
+    
+    // Only apply class filter if a class is selected
+    if (selectedClass) {
+      result = result.filter(
+        (student) => student.class_id.toString() === selectedClass
+      );
+    }
+    
+    // Apply search filter
+    result = result.filter(
+      (student) =>
+        student.full_name.toLowerCase().includes(search.toLowerCase()) ||
+        student.gr_number.toLowerCase().includes(search.toLowerCase())
+    );
+    
+    return result;
+  }, [students, selectedClass, search]);
   // Fetch classes
   const fetchClasses = async () => {
     try {
-      const data = await invoke<Class[]>('get_all_classes');
+      const data = await invoke<Class[]>('get_active_classes');
       setClasses(data);
     } catch (error) {
       console.error('Error fetching classes:', error);
@@ -106,7 +114,7 @@ export function IdCardView() {
     }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     fetchClasses();
     fetchStudents();
   }, []);
@@ -135,7 +143,9 @@ export function IdCardView() {
     }
   };
 
-  const handleClearSelection = () => {
+
+
+   const handleClearSelection = () => {
     setSelectedStudents([]);
     setSuccessMessage('Cleared all selected students');
     setShowToast(true);

@@ -94,6 +94,123 @@ pub struct Student {
     pub docs: StudentDocs,
 }
 
+
+
+#[tauri::command]
+pub async fn excel_bulk_insert(
+    state: State<'_, DbState>,
+    students: Vec<Student>,
+) -> Result<Vec<i64>, String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let mut student_ids = Vec::new();
+
+    for student in students {
+        // Check if class exists
+        let class_exists: i64 = tx.query_row(
+            "SELECT COUNT(1) FROM classes WHERE id = ?",
+            params![&student.core.class_id],
+            |row| row.get(0),
+        ).map_err(|e| format!("Class validation failed: {}", e))?;
+
+        if class_exists == 0 {
+            return Err(format!("Class with id {} does not exist", student.core.class_id));
+        }
+
+        // Check if GR number already exists (in this batch or database)
+        let gr_exists: i64 = tx.query_row(
+            "SELECT COUNT(1) FROM students WHERE gr_number = ?",
+            params![&student.core.gr_number],
+            |row| row.get(0),
+        ).map_err(|e| format!("GR number check failed: {}", e))?;
+
+        if gr_exists > 0 {
+            return Err(format!("Student with GR number {} already exists", student.core.gr_number));
+        }
+
+        // Insert core student data
+        tx.execute(
+            "INSERT INTO students (
+                gr_number, roll_number, full_name, dob, gender,
+                mother_name, father_name, father_occupation, mother_occupation, annual_income,
+                nationality, profile_image, class_id, section, academic_year,
+                email, mobile_number, alternate_contact_number, address, city,
+                state, country, postal_code, guardian_contact_info,
+                blood_group, status, admission_date, weight_kg, height_cm, hb_range,
+                medical_conditions, emergency_contact_person, emergency_contact,
+                birth_certificate, transfer_certificate, previous_academic_records,
+                address_proof, id_proof, passport_photo, medical_certificate,
+                vaccination_certificate, other_documents
+            ) VALUES (
+                ?1, ?2, ?3, ?4, ?5,
+                ?6, ?7, ?8, ?9, ?10,
+                ?11, ?12, ?13, ?14, ?15,
+                ?16, ?17, ?18, ?19, ?20,
+                ?21, ?22, ?23, ?24,
+                ?25, ?26, ?27, ?28, ?29, ?30,
+                ?31, ?32, ?33,
+                ?34, ?35, ?36,
+                ?37, ?38, ?39, ?40,
+                ?41, ?42
+            )",
+            params![
+                // Core fields
+                student.core.gr_number,
+                student.core.roll_number,
+                student.core.full_name,
+                student.core.dob,
+                student.core.gender,
+                student.core.mother_name,
+                student.core.father_name,
+                student.core.father_occupation,
+                student.core.mother_occupation,
+                student.core.annual_income,
+                student.core.nationality,
+                student.core.profile_image,
+                student.core.class_id,
+                student.core.section,
+                student.core.academic_year,
+                // Contact fields
+                student.contact.email,
+                student.contact.mobile_number,
+                student.contact.alternate_contact_number,
+                student.contact.address,
+                student.contact.city,
+                student.contact.state,
+                student.contact.country,
+                student.contact.postal_code,
+                student.contact.guardian_contact_info,
+                // Health fields
+                student.health.blood_group,
+                student.health.status,
+                student.health.admission_date,
+                student.health.weight_kg,
+                student.health.height_cm,
+                student.health.hb_range,
+                student.health.medical_conditions,
+                student.health.emergency_contact_person,
+                student.health.emergency_contact,
+                // Document fields
+                student.docs.birth_certificate,
+                student.docs.transfer_certificate,
+                student.docs.previous_academic_records,
+                student.docs.address_proof,
+                student.docs.id_proof,
+                student.docs.passport_photo,
+                student.docs.medical_certificate,
+                student.docs.vaccination_certificate,
+                student.docs.other_documents,
+            ],
+        ).map_err(|e| e.to_string())?;
+
+        student_ids.push(tx.last_insert_rowid());
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(student_ids)
+}
+
 #[tauri::command]
 pub fn get_students(
     state: State<'_, DbState>,

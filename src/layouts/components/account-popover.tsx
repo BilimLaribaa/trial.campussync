@@ -1,8 +1,6 @@
 import type { IconButtonProps } from '@mui/material/IconButton';
 
-import { invoke } from '@tauri-apps/api/core';
-import { resolveResource } from '@tauri-apps/api/path';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -20,9 +18,10 @@ import { _myAccount } from 'src/_mock';
 
 import { SchoolProfileDialog } from 'src/components/SchoolProfileDialog';
 
+import Config from '../../../config'; // Import your config file
+
 // ----------------------------------------------------------------------
 
-// Frontend type matching the updated schools table structure
 export interface School {
   id?: number;
   school_name: string;
@@ -67,8 +66,6 @@ export function AccountPopover({
   const [openProfileDialog, setOpenProfileDialog] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-
-
   const handleOpenPopover = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     setOpenPopover(event.currentTarget);
   }, []);
@@ -88,6 +85,24 @@ export function AccountPopover({
     },
     [handleClosePopover, router, onProfileClick]
   );
+
+  // Updated logout function using Config.backend
+  const handleLogout = useCallback(async () => {
+    try {
+      const response = await fetch(`${Config.backend}/auth/logout`, {
+        method: 'GET',
+        credentials: 'include', // Important for sending cookies
+      });
+
+      if (response.ok) {
+        router.push('/'); // Redirect to home after successful logout
+      } else {
+        console.error('Logout failed:', await response.text());
+      }
+    } catch (error) {
+      console.error('Network error during logout:', error);
+    }
+  }, [router]);
 
   return (
     <>
@@ -186,7 +201,13 @@ export function AccountPopover({
         <Divider sx={{ borderStyle: 'dashed' }} />
 
         <Box sx={{ p: 1 }}>
-          <Button onClick={() => handleClickItem('/')} fullWidth color="error" size="medium" variant="text">
+          <Button 
+            onClick={handleLogout} 
+            fullWidth 
+            color="error" 
+            size="medium" 
+            variant="text"
+          >
             Logout
           </Button>
         </Box>

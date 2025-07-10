@@ -85,7 +85,11 @@ pub fn run() {
             class::get_class,
             class::get_all_classes,
             class::update_class,
-            class::delete_class,
+            // class::delete_class,
+            class::get_active_classes,
+            class::toggle_class_status,
+            class::initialize_default_classes,
+            class::check_and_initialize_default_classes_once,
             // Staff commands
             staff::create_staff,
             staff::get_staff,
@@ -102,6 +106,7 @@ pub fn run() {
             students::get_student_document_base64,   // delet student command
             students::upload_student_file,
             students::get_students,
+            students::excel_bulk_insert,
             // students::save_document_dialog,
             // students::copy_file,
             // Image commands

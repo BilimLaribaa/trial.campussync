@@ -213,16 +213,16 @@ function ClassesWidget() {
   useEffect(() => {
     const fetchClasses = async () => {
       try {
-        // Use the existing get_all_classes command
-        const classes = await invoke<Class[]>('get_all_classes');
+        // CHANGE THIS LINE - use get_active_classes instead of get_all_classes
+        const classes = await invoke<Class[]>('get_active_classes');
         
         const currentYear = '2024-2025'; // Current academic year
 
         const summaryData = classes.reduce(
           (acc, cls) => ({
             total: acc.total + 1,
-            active: acc.active + (cls.status === 'active' ? 1 : 0),
-            inactive: acc.inactive + (cls.status !== 'active' ? 1 : 0),
+            active: acc.active + 1, // All classes from get_active_classes are active
+            inactive: 0, // Since we're only getting active classes
             currentYear: acc.currentYear + (cls.academic_year_details?.academic_year === currentYear ? 1 : 0),
           }),
           { total: 0, active: 0, inactive: 0, currentYear: 0 }

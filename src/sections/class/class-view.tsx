@@ -1,18 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useState, useEffect, useMemo } from 'react';
 
-import { 
-  Box, Card, Menu, Chip, Stack, Alert, Table, Dialog, Button, 
-  Tooltip, TableRow, MenuItem, Snackbar, Checkbox, TableBody, 
-  TableCell, TableHead, TextField, Typography, IconButton, 
-  DialogTitle, ListItemIcon, ListItemText, DialogActions, 
-  DialogContent, TableContainer, TableSortLabel, TablePagination 
+import {
+  Box, Card, Menu, Chip, Stack, Alert, Dialog, Button,
+  Tooltip, TextField, Typography, IconButton,
+  DialogTitle, ListItemIcon, ListItemText, DialogActions,
+  DialogContent, Switch, CardContent, FormControlLabel,
+  MenuItem, Snackbar
 } from '@mui/material';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { Iconify } from 'src/components/iconify';
-import { Scrollbar } from 'src/components/scrollbar';
 
 import { ClassForm } from './class-form';
 
@@ -27,26 +26,12 @@ type Class = {
   class_name: string;
   academic_years: number;
   status?: string;
-  created_at?: string;
-  updated_at?: string;
   academic_year_details?: AcademicYear;
 };
 
 type DisplayClass = Class & {
   academic_year?: string;
 };
-
-type Column = {
-  id: keyof DisplayClass;
-  label: string;
-};
-
-const columns: Column[] = [
-  { id: 'class_name', label: 'Class Name' },
-  { id: 'academic_year', label: 'Academic Year' },
-  { id: 'status', label: 'Status' },
-  { id: 'created_at', label: 'Created At' },
-];
 
 const StatusBadge = ({ status }: { status?: string }) => {
   const getStatusColor = () => {
@@ -67,6 +52,53 @@ const StatusBadge = ({ status }: { status?: string }) => {
   );
 };
 
+const ClassCard = ({ 
+  classItem, 
+  onToggleStatus,
+  onEdit
+}: {
+  classItem: DisplayClass;
+  onToggleStatus: (id?: number) => void;
+  onEdit: () => void;
+}) => (
+  <Card sx={{ width: '100%', maxWidth: 300, m: 1 }}>
+    <CardContent>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Typography variant="h6">{classItem.class_name}</Typography>
+        <StatusBadge status={classItem.status} />
+      </Stack>
+
+      <Stack spacing={1} mb={2}>
+        <Typography variant="body2">
+          <strong>Academic Year:</strong> {classItem.academic_year || 'N/A'}
+        </Typography>
+      </Stack>
+
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <FormControlLabel
+          control={
+            <Switch
+              checked={classItem.status === 'active'}
+              onChange={() => onToggleStatus(classItem.id)}
+              color="success"
+            />
+          }
+          label={classItem.status === 'active' ? 'Active' : 'Inactive'}
+        />
+        
+        <Button
+          size="small"
+          onClick={onEdit}
+          color="primary"
+          startIcon={<Iconify icon="solar:pen-bold" width={16} />}
+        >
+          Edit
+        </Button>
+      </Stack>
+    </CardContent>
+  </Card>
+);
+
 export function ClassView() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [displayClasses, setDisplayClasses] = useState<DisplayClass[]>([]);
@@ -81,12 +113,6 @@ export function ClassView() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [errorStatus, setErrorStatus] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<Set<keyof DisplayClass>>(
-    new Set(['class_name', 'academic_year', 'status'])
-  );
-  const [columnMenuAnchor, setColumnMenuAnchor] = useState<null | HTMLElement>(null);
-  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
-  const [selectedClass, setSelectedClass] = useState<Class | null>(null);
 
   const transformClassForDisplay = (cls: Class): DisplayClass => ({
     ...cls,
@@ -96,6 +122,7 @@ export function ClassView() {
   const fetchClasses = async () => {
     try {
       const data = await invoke<Class[]>('get_all_classes');
+      console.log('Fetched classes:', data);
       setClasses(data);
       setDisplayClasses(data.map(transformClassForDisplay));
     } catch (error) {
@@ -110,9 +137,33 @@ export function ClassView() {
     try {
       const years = await invoke<AcademicYear[]>('get_all_academic_years');
       setAcademicYears(years);
+
+      if (years.length > 0) {
+        const currentYear = years.find(y => y.status === 'active') || years[0];
+        await invoke('check_and_initialize_default_classes_once', {
+          academicYearId: currentYear.id
+        });
+        fetchClasses();
+      }
     } catch (error) {
       console.error('Error fetching academic years:', error);
       setSuccessMessage('Failed to fetch academic years');
+      setErrorStatus(true);
+      setShowToast(true);
+    }
+  };
+
+  const handleToggleStatus = async (classId?: number) => {
+    if (!classId) return;
+
+    try {
+      await invoke('toggle_class_status', { id: classId });
+      setSuccessMessage('Class status updated successfully!');
+      setErrorStatus(false);
+      setShowToast(true);
+      fetchClasses();
+    } catch (error) {
+      setSuccessMessage('Failed to update class status');
       setErrorStatus(true);
       setShowToast(true);
     }
@@ -138,19 +189,17 @@ export function ClassView() {
       if (editingClass?.id) {
         await invoke('update_class', {
           id: editingClass.id,
-          class_name: formData.class_name,
-          academic_years: formData.academic_years,
-          status: formData.status
+          className: formData.class_name,
+          academicYears: formData.academic_years,
+          status: formData.status || 'active'
         });
         setSuccessMessage('Class updated successfully!');
       } else {
         await invoke('create_class', {
           className: formData.class_name,
           academicYears: formData.academic_years,
-          status: formData.status
+          status: formData.status || 'active'
         });
-        console.log("success");
-        
         setSuccessMessage('Class added successfully!');
         setErrorStatus(false);
       }
@@ -158,28 +207,10 @@ export function ClassView() {
       fetchClasses();
       handleClose();
     } catch (error: any) {
-      setSuccessMessage(error || 'Failed to save class');
+      setSuccessMessage(error.toString());
       setErrorStatus(true);
       setShowToast(true);
     }
-  };
-
-  const handleDelete = async () => {
-    if (selectedClass?.id && window.confirm('Are you sure you want to delete this class?')) {
-      try {
-        await invoke('delete_class', { id: selectedClass.id });
-        setSuccessMessage('Class deleted successfully!');
-        setErrorStatus(false);
-        setShowToast(true);
-        fetchClasses();
-      } catch (error) {
-        console.error('Error deleting class:', error);
-        setSuccessMessage('Failed to delete class');
-        setErrorStatus(true);
-        setShowToast(true);
-      }
-    }
-    handleActionMenuClose();
   };
 
   const handleSort = (field: keyof DisplayClass) => {
@@ -195,35 +226,6 @@ export function ClassView() {
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
-
-  const handleActionMenuOpen = (event: React.MouseEvent<HTMLElement>, classItem: DisplayClass) => {
-    setActionMenuAnchor(event.currentTarget);
-    const originalClass = classes.find(c => c.id === classItem.id) || null;
-    setSelectedClass(originalClass);
-  };
-
-  const handleActionMenuClose = () => {
-    setActionMenuAnchor(null);
-    setSelectedClass(null);
-  };
-
-  const handleColumnMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setColumnMenuAnchor(event.currentTarget);
-  };
-
-  const handleColumnMenuClose = () => {
-    setColumnMenuAnchor(null);
-  };
-
-  const toggleColumn = (columnId: keyof DisplayClass) => {
-    const newVisibleColumns = new Set(visibleColumns);
-    if (newVisibleColumns.has(columnId)) {
-      newVisibleColumns.delete(columnId);
-    } else {
-      newVisibleColumns.add(columnId);
-    }
-    setVisibleColumns(newVisibleColumns);
   };
 
   const filtered = useMemo(() => {
@@ -243,6 +245,16 @@ export function ClassView() {
     );
   }, [displayClasses, search, order, orderBy]);
 
+  // Group classes into rows of 4
+  const groupedClasses = useMemo(() => {
+    const slicedClasses = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const rows = [];
+    for (let i = 0; i < slicedClasses.length; i += 4) {
+      rows.push(slicedClasses.slice(i, i + 4));
+    }
+    return rows;
+  }, [filtered, page, rowsPerPage]);
+
   return (
     <DashboardContent>
       <Box sx={{ mb: 5, display: 'flex', alignItems: 'center' }}>
@@ -259,120 +271,66 @@ export function ClassView() {
         </Button>
       </Box>
 
-      <Card>
-        <Box sx={{ p: 2 }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <TextField
-              size="small"
-              label="Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <Button
-              size="small"
-              onClick={handleColumnMenuOpen}
-              startIcon={<Iconify icon="solar:pen-bold" />}
-            >
-              Columns
-            </Button>
-            <Menu
-              anchorEl={columnMenuAnchor}
-              open={Boolean(columnMenuAnchor)}
-              onClose={handleColumnMenuClose}
-            >
-              {columns.map((column) => (
-                <MenuItem key={column.id} onClick={() => toggleColumn(column.id)}>
-                  <Checkbox checked={visibleColumns.has(column.id)} />
-                  <ListItemText primary={column.label} />
-                </MenuItem>
+      <Box sx={{ mb: 3 }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <TextField
+            size="small"
+            label="Search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ width: 300 }}
+          />
+        </Stack>
+      </Box>
+
+      {filtered.length > 0 ? (
+        <Stack spacing={2}>
+          {groupedClasses.map((row, rowIndex) => (
+            <Stack key={rowIndex} direction="row" spacing={2} justifyContent="flex-start">
+              {row.map((classItem) => (
+                <Box key={classItem.id} sx={{ width: '25%' }}>
+                  <ClassCard
+                    classItem={classItem}
+                    onToggleStatus={handleToggleStatus}
+                    onEdit={() => {
+                      const originalClass = classes.find(c => c.id === classItem.id) || null;
+                      setEditingClass(originalClass);
+                      setOpenDialog(true);
+                    }}
+                  />
+                </Box>
               ))}
-            </Menu>
-          </Stack>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Box sx={{ py: 3, textAlign: 'center' }}>
+          <Typography variant="h6" paragraph>
+            No Data
+          </Typography>
+          <Typography variant="body2">
+            No records found
+          </Typography>
         </Box>
+      )}
 
-        <Scrollbar>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {columns.map((column) => (
-                    visibleColumns.has(column.id) && (
-                      <TableCell key={column.id}>
-                        <TableSortLabel
-                          active={orderBy === column.id}
-                          direction={orderBy === column.id ? order : 'asc'}
-                          onClick={() => handleSort(column.id)}
-                        >
-                          {column.label}
-                        </TableSortLabel>
-                      </TableCell>
-                    )
-                  ))}
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-
-              <TableBody>
-                {filtered.length > 0 ? (
-                  filtered
-                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                    .map((classItem) => (
-                      <TableRow key={classItem.id} hover>
-                        {columns.map((column) => (
-                          visibleColumns.has(column.id) && (
-                            <TableCell key={column.id}>
-                              {column.id === 'status' ? (
-                                <StatusBadge status={classItem.status} />
-                              ) : column.id === 'academic_year' ? (
-                                classItem.academic_year || 'N/A'
-                              ) : column.id === 'created_at' ? (
-                                classItem.created_at
-                              ) : (
-                                String(classItem[column.id])
-                              )}
-                            </TableCell>
-                          )
-                        ))}
-                        <TableCell align="right">
-                          <IconButton
-                            size="large"
-                            onClick={(e) => handleActionMenuOpen(e, classItem)}
-                            color="inherit"
-                          >
-                            <Iconify icon="eva:more-vertical-fill" width={24} />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={columns.length + 1} align="center">
-                      <Box sx={{ py: 3 }}>
-                        <Typography variant="h6" paragraph>
-                          No Data
-                        </Typography>
-                        <Typography variant="body2">
-                          No records found
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Scrollbar>
-
-        <TablePagination
-          component="div"
-          count={filtered.length}
-          page={page}
-          onPageChange={handleChangePage}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[10, 25, 50]}
-        />
-      </Card>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+        <Button
+          variant="outlined"
+          onClick={() => setPage(p => Math.max(0, p - 1))}
+          disabled={page === 0}
+          sx={{ mr: 1 }}
+        >
+          Previous
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={() => setPage(p => p + 1)}
+          disabled={(page + 1) * rowsPerPage >= filtered.length}
+        >
+          Next
+        </Button>
+      </Box>
 
       <ClassForm
         open={openDialog}
@@ -381,31 +339,6 @@ export function ClassView() {
         currentClass={editingClass}
         academicYears={academicYears}
       />
-
-      <Menu
-        anchorEl={actionMenuAnchor}
-        open={Boolean(actionMenuAnchor)}
-        onClose={handleActionMenuClose}
-      >
-        <MenuItem onClick={() => {
-          if (selectedClass) {
-            setEditingClass(selectedClass);
-            setOpenDialog(true);
-            handleActionMenuClose();
-          }
-        }}>
-          <ListItemIcon>
-            <Iconify icon="solar:pen-bold" width={20} />
-          </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
-        </MenuItem>
-        <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
-          <ListItemIcon>
-            <Iconify icon="solar:trash-bin-trash-bold" width={20} sx={{ color: 'error.main' }} />
-          </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
-        </MenuItem>
-      </Menu>
 
       <Snackbar
         open={showToast}
