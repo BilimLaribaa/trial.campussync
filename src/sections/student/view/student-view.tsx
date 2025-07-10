@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useStudentSearch } from 'src/contexts/StudentSearchContext';
 
 type Student = {
   id: number;
@@ -95,6 +96,7 @@ interface AcademicYear {
 export function StudentView() {
   const navigate = useNavigate();
   const infoRef = useRef<HTMLDivElement>(null);
+  const { grNumber, setGrNumber } = useStudentSearch();
   const [students, setStudents] = useState<Student[]>([]);
   const [documentUrls, setDocumentUrls] = useState<Record<number, DocumentUrls>>({});
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -114,6 +116,7 @@ export function StudentView() {
   const [missingClasses, setMissingClasses] = useState<{ className: string, academicYear: string }[]>([]);
   const [duplicateGrNumbers, setDuplicateGrNumbers] = useState<{ grNumber: string, studentName: string }[]>([]);
  const [studentsToImport, setStudentsToImport] = useState<Student[]>([]);
+  const [searchAlert, setSearchAlert] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
   const handleDelete = async () => {
     if (!selectedStudentId) return;
@@ -226,7 +229,7 @@ export function StudentView() {
 
         setClassMap(newClassMap);
         setStudents(studentsData);
-        setSelectedStudentId(studentsData[0]?.id || null);
+        setSelectedStudentId(prev => prev !== null ? prev : (studentsData[0]?.id || null));
       } catch (err) {
         console.error('Failed to fetch data:', err);
         setError('Failed to load student data');
@@ -261,6 +264,19 @@ export function StudentView() {
   useEffect(() => {
     if (infoRef.current) setCardHeight(infoRef.current.clientHeight + 240);
   }, [selectedStudentId, infoTab]);
+
+  useEffect(() => {
+    if (grNumber && students.length > 0) {
+      const found = students.find(s => s.gr_number.toLowerCase().includes(grNumber.toLowerCase()));
+      if (found) {
+        setSelectedStudentId(found.id);
+        setSearchAlert({ open: true, message: `Student found: ${found.full_name}`, severity: 'success' });
+      } else {
+        setSearchAlert({ open: true, message: 'No student found for GR number: ' + grNumber, severity: 'error' });
+      }
+      setGrNumber(''); // Clear after use
+    }
+  }, [grNumber, students, setGrNumber]);
 
   const selectedStudent = students.find(s => s.id === selectedStudentId);
 
@@ -1046,6 +1062,11 @@ export function StudentView() {
       >
         <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
+        </Alert>
+      </Snackbar>
+      <Snackbar open={searchAlert.open} autoHideDuration={3000} onClose={() => setSearchAlert(a => ({ ...a, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert onClose={() => setSearchAlert(a => ({ ...a, open: false }))} severity={searchAlert.severity} sx={{ width: '100%' }}>
+          {searchAlert.message}
         </Alert>
       </Snackbar>
     </DashboardContent>

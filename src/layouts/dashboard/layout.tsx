@@ -12,6 +12,7 @@ import { useTheme } from '@mui/material/styles';
 
 import { _langs, _notifications } from 'src/_mock';
 import { SchoolContext, SchoolProvider } from 'src/contexts/SchoolContext';
+import { StudentSearchProvider } from 'src/contexts/StudentSearchContext';
 
 import { Version } from 'src/components/version';
 import { Settings } from 'src/components/settings';
@@ -186,7 +187,9 @@ function DashboardLayoutContent({
 export function DashboardLayout(props: DashboardLayoutProps) {
   return (
     <SchoolProvider>
-      <DashboardLayoutContent {...props} />
+      <StudentSearchProvider>
+        <DashboardLayoutContent {...props} />
+      </StudentSearchProvider>
     </SchoolProvider>
   );
 }

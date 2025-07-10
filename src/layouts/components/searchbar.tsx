@@ -1,6 +1,6 @@
 import type { BoxProps } from '@mui/material/Box';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { varAlpha } from 'minimal-shared/utils';
 
 import Box from '@mui/material/Box';
@@ -13,13 +13,32 @@ import InputAdornment from '@mui/material/InputAdornment';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 
 import { Iconify } from 'src/components/iconify';
+import { useStudentSearch } from 'src/contexts/StudentSearchContext';
+import { useNavigate } from 'react-router-dom';
 
 // ----------------------------------------------------------------------
 
 export function Searchbar({ sx, ...other }: BoxProps) {
   const theme = useTheme();
-
+  const { setGrNumber } = useStudentSearch();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '`' && !open) {
+        setSearchValue('');
+        setOpen(true);
+        e.preventDefault();
+      } else if (e.key === 'Escape' && open) {
+        setOpen(false);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   const handleOpen = useCallback(() => {
     setOpen((prev) => !prev);
@@ -28,6 +47,14 @@ export function Searchbar({ sx, ...other }: BoxProps) {
   const handleClose = useCallback(() => {
     setOpen(false);
   }, []);
+
+  const handleSearch = () => {
+    if (searchValue.trim()) {
+      setGrNumber(searchValue.trim());
+      navigate('/dashboard/students');
+    }
+    handleClose();
+  };
 
   return (
     <ClickAwayListener onClickAway={handleClose}>
@@ -65,7 +92,10 @@ export function Searchbar({ sx, ...other }: BoxProps) {
               autoFocus
               fullWidth
               disableUnderline
-              placeholder="Search…"
+              placeholder="Search by GR Number…"
+              value={searchValue}
+              onChange={e => setSearchValue(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
               startAdornment={
                 <InputAdornment position="start">
                   <Iconify width={20} icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
@@ -73,7 +103,7 @@ export function Searchbar({ sx, ...other }: BoxProps) {
               }
               sx={{ fontWeight: 'fontWeightBold' }}
             />
-            <Button variant="contained" onClick={handleClose}>
+            <Button variant="contained" onClick={handleSearch}>
               Search
             </Button>
           </Box>

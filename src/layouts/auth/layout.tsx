@@ -77,7 +77,10 @@ export function AuthLayout({
   const renderFooter = () => null;
 
   const changeproxy = () => {
-    const input = window.prompt('Enter the backend IP or domain (e.g., http://localhost:8000 or https://yourdomain.com):');
+    const currentApi = localStorage.getItem('backend_api') || 'api.campussync.com';
+    const input = window.prompt(
+      `Enter the backend IP or domain (e.g., http://localhost:8000 or https://yourdomain.com):\n\nCurrent API: ${currentApi}`
+    );
     if (input && input.trim()) {
       localStorage.setItem('backend_api', input.trim());
       alert('Backend API set to: ' + input.trim() + '\nReloading the page...');
