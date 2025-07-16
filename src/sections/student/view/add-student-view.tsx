@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +20,13 @@ import {
   DialogActions,
   Chip, Paper, LinearProgress
 } from '@mui/material';
+
+import ReactCrop, { Crop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
+import Cropper from 'react-easy-crop';
+import Slider from '@mui/material/Slider';
+import getCroppedImg from './utils/cropImage'; // We'll add this utility below
+import 'react-easy-crop/react-easy-crop.css';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 
@@ -192,6 +199,21 @@ type FileObject = {
   file: File;
   preview: string;
 };
+
+// Utility to convert base64 to File
+function base64ToFile(base64: string, filename: string): File {
+  const arr = base64.split(',');
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  if (!mimeMatch || !arr[1]) throw new Error('Invalid base64 image data');
+  const mime = mimeMatch[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+}
 
 export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -632,6 +654,42 @@ const [passportUploaded, setPassportUploaded] = useState(false);
     />
   );
 
+  // Cropper state for passport photo
+  const [showCropper, setShowCropper] = useState(false);
+  const [srcImage, setSrcImage] = useState<string | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const handlePassportPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setSrcImage(ev.target?.result as string);
+        setShowCropper(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Fix linter error: type the onCropComplete parameters
+  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropSave = async () => {
+    if (srcImage && croppedAreaPixels) {
+      const cropped = await getCroppedImg(srcImage, croppedAreaPixels);
+      setCroppedImage(cropped);
+      // Convert to File and upload
+      const file = base64ToFile(cropped, `passport_photo_${Date.now()}.jpg`);
+      await handleFileUpload('passport_photo', { 0: file, length: 1, item: (i: number) => file } as unknown as FileList);
+      setShowCropper(false);
+    }
+  };
+
   const renderStepContent = () => {
     switch (activeStep) {
       case 0: return (
@@ -999,46 +1057,51 @@ const [passportUploaded, setPassportUploaded] = useState(false);
             Passport photo is required for submission
           </Typography>
           
-          {/* File Upload for Passport Photo */}
-          <Button
-            variant="outlined"
-            component="label"
-            startIcon={<CloudUploadIcon />}
-            fullWidth
-          >
-            Select Passport Photo
+          {/* Passport Photo Upload with Cropper */}
+          <Box sx={{ mt: 2 }}>
             <input
+              accept="image/*"
               type="file"
-              hidden
-              accept=".jpg,.jpeg,.png"
-              onChange={(e) => {
-                if (e.target.files && e.target.files[0]) {
-                  const file = e.target.files[0];
-                  setCurrentFile(file);
-                  setCurrentDocumentType('passport_photo');
-                  
-                  // Create preview
-                  const reader = new FileReader();
-                  reader.onload = (event) => {
-                    setCurrentPreview(event.target?.result as string);
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
+              onChange={handlePassportPhotoChange}
             />
-          </Button>
-
-          {/* Preview for Passport Photo */}
-          {currentPreview && currentDocumentType === 'passport_photo' && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle2">Preview:</Typography>
-              <img 
-                src={currentPreview} 
-                alt="Passport Preview" 
-                style={{ maxWidth: '100%', maxHeight: 200, marginTop: 8 }} 
-              />
-            </Box>
-          )}
+            <Dialog open={showCropper} onClose={() => setShowCropper(false)} maxWidth="xs" fullWidth>
+              <DialogTitle>Crop Passport Photo</DialogTitle>
+              <DialogContent>
+                {srcImage && (
+                  <div style={{ position: 'relative', width: '100%', height: 300, background: '#333' }}>
+                    <Cropper
+                      image={srcImage}
+                      crop={crop}
+                      zoom={zoom}
+                      aspect={1}
+                      onCropChange={setCrop}
+                      onZoomChange={setZoom}
+                      onCropComplete={onCropComplete}
+                    />
+                    <Slider
+                      value={zoom}
+                      min={1}
+                      max={3}
+                      step={0.01}
+                      aria-labelledby="Zoom"
+                      onChange={(_, value) => setZoom(value as number)}
+                      sx={{ position: 'absolute', bottom: 10, left: 10, right: 10 }}
+                    />
+                  </div>
+                )}
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={handleCropSave} variant="contained">Crop & Save</Button>
+                <Button onClick={() => setShowCropper(false)} variant="outlined">Cancel</Button>
+              </DialogActions>
+            </Dialog>
+            {croppedImage && (
+              <div>
+                <Typography variant="subtitle2">Preview:</Typography>
+                <img src={croppedImage} alt="Cropped" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }} />
+              </div>
+            )}
+          </Box>
 
           {/* Upload Button for Passport Photo */}
           <Button
