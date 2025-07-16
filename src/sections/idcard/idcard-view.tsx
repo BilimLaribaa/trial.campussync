@@ -43,17 +43,21 @@ export function IdCardView() {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [designUrl, setDesignUrl] = useState<string | null>(null);
+  const [designFile, setDesignFile] = useState<File | null>(null);
+  const [allFilteredStudents, setAllFilteredStudents] = useState<Student[]>([]);
 
   // Filtered students based on class (only when selected) and search
   const filteredStudents = useMemo(() => {
-    // If no class is selected, return empty array
-    if (!selectedClass) return [];
+     if (!selectedClass) {
+      setAllFilteredStudents([]);
+      return [];
+    }
     
     let result = students.filter(
       (student) => student.class_id.toString() === selectedClass
     );
     
-    // Apply search filter if there's a search term
     if (search) {
       result = result.filter(
         (student) =>
@@ -61,7 +65,7 @@ export function IdCardView() {
           student.gr_number.toLowerCase().includes(search.toLowerCase())
       );
     }
-    
+    setAllFilteredStudents(result);
     return result;
   }, [students, selectedClass, search]);
 
@@ -77,6 +81,13 @@ export function IdCardView() {
       setShowToast(true);
     }
   };
+
+  useEffect(() => {
+    // Automatically select first student when filtered students change
+    if (filteredStudents.length > 0 && selectedStudents.length === 0) {
+      setSelectedStudents([filteredStudents[0]]);
+    }
+  }, [filteredStudents]);
 
   // Fetch students
   const fetchStudents = async () => {
@@ -130,23 +141,21 @@ export function IdCardView() {
     setSearch(value);
   };
 
-  const handleSelectStudent = (studentOrStudents: Student | Student[]) => {
-    if (Array.isArray(studentOrStudents)) {
-      setSelectedStudents(studentOrStudents);
-    } else {
-      setSelectedStudents((prev) =>
-        prev.some((s) => s.id === studentOrStudents.id)
-          ? prev.filter((s) => s.id !== studentOrStudents.id)
-          : [...prev, studentOrStudents]
-      );
-    }
+  const handleSelectStudent = (student: Student) => {
+    setSelectedStudents(prev => 
+      prev.some(s => s.id === student.id) 
+        ? [] 
+        : [student]
+    );
   };
 
-  const handleClearSelection = () => {
-    setSelectedStudents([]);
-    setSuccessMessage('Cleared all selected students');
-    setShowToast(true);
-  };
+  //  const handleClearSelection = () => {
+  //   setSelectedStudents([]);
+  //   setSuccessMessage('Cleared all selected students');
+  //   setShowToast(true);
+  //   setDesignUrl(null);
+  //   setDesignFile(null);
+  // };
 
   return (
     <DashboardContent>
@@ -155,27 +164,54 @@ export function IdCardView() {
       </Box>
 
       <Stack direction="row" spacing={3} sx={{ height: 'calc(100vh - 180px)' }}>
-        {/* Student Table */}
-        <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <StudentTable
-            students={filteredStudents}
-            classes={classes}
-            selectedClass={selectedClass}
-            search={search}
-            isLoading={isLoading}
-            selectedStudents={selectedStudents}
-            onClassChange={handleClassChange}
-            onSearchChange={handleSearchChange}
-            onSelectStudent={handleSelectStudent}
-          />
+        {/* Student Table - Left Panel */}
+        <Card sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            <Box sx={{ overflow: 'auto', height: '100%' }}>
+              <StudentTable
+                students={filteredStudents}
+                classes={classes}
+                selectedClass={selectedClass}
+                search={search}
+                isLoading={isLoading}
+                selectedStudents={selectedStudents}
+                onClassChange={handleClassChange}
+                onSearchChange={handleSearchChange}
+                onSelectStudent={handleSelectStudent}
+              />
+            </Box>
+          </Box>
         </Card>
 
-        {/* ID Card Preview */}
-        <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <IDCardPreview
-  Student={selectedStudents?.length > 0 ? selectedStudents : filteredStudents || []}
-  onClearSelection={handleClearSelection}
-/>
+        {/* ID Card Preview - Right Panel */}
+        <Card sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          <Box sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
+            <IDCardPreview
+              Student={selectedStudents?.length > 0 ? selectedStudents : filteredStudents || []}
+              AllStudents={allFilteredStudents}  
+              // onClearSelection={handleClearSelection}
+            />
+          </Box>
         </Card>
       </Stack>
 

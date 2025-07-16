@@ -106,7 +106,7 @@ pub fn run() {
             students::get_student_document_base64,   // delet student command
             students::upload_student_file,
             students::get_students,
-            students::excel_bulk_insert,
+            students::bulk_create_students,
             // students::save_document_dialog,
             // students::copy_file,
             // Image commands

@@ -1,3 +1,4 @@
+// src\sections\idcard\IDCardPreview.tsx
 import JSZip from 'jszip';
 import jsPDF from 'jspdf';
 import { Rnd } from 'react-rnd';
@@ -8,7 +9,6 @@ import { useState, useRef } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Box, Typography, Button, Stack, Slider, Select, MenuItem, FormControl, InputLabel, TextField, Menu } from '@mui/material';
-
 
 type Student = {
   id: number;
@@ -25,16 +25,15 @@ type Student = {
 
 type IDCardPreviewProps = {
   Student: Student[];
-  onClearSelection: () => void;
+  AllStudents: Student[];
+  // onClearSelection: () => void;
 };
 
 export function IDCardPreview({
   Student,
-  onClearSelection,
+  AllStudents, 
+  // onClearSelection,
 }: IDCardPreviewProps) {
-
-  console.log(Student);
-  
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [designUrl, setDesignUrl] = useState<string | null>(null);
   const [photoPosition, setPhotoPosition] = useState({ x: 8, y: 8, width: 64, height: 64 });
@@ -98,7 +97,6 @@ export function IDCardPreview({
   };
 
   // Update photoPosition when user drags/resizes
-  // Only update when design is image and Student[0] exists
   const handlePhotoDragStop = (e: any, d: any) => {
     setPhotoPosition((pos) => ({ ...pos, x: d.x, y: d.y }));
   };
@@ -110,7 +108,6 @@ export function IDCardPreview({
       height: parseInt(ref.style.height, 10),
     });
   };
-  
 
   // When the preview image loads, store its rendered and natural size
   const handlePreviewImgLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -151,9 +148,9 @@ export function IDCardPreview({
   };
 
   const handleOverlayDoubleClick = (event: React.MouseEvent<HTMLElement>, clickedOverlayId: number) => {
-  event.preventDefault();
-  setContextMenu({ anchorEl: event.currentTarget as HTMLElement, overlayId: clickedOverlayId });
-};
+    event.preventDefault();
+    setContextMenu({ anchorEl: event.currentTarget as HTMLElement, overlayId: clickedOverlayId });
+  };
   const handleContextMenuClose = () => {
     setContextMenu({ anchorEl: null, overlayId: null });
   };
@@ -176,14 +173,13 @@ export function IDCardPreview({
 
   // Generate all ID cards as PNGs and download as zip
   const handleGenerateAll = async () => {
-    if (!designUrl || !designFile?.type.startsWith('image/')) return;
+     if (!designUrl || !designFile?.type.startsWith('image/')) return;
     const zip = new JSZip();
-    // Create a hidden container for rendering
     const container = document.createElement('div');
     container.style.position = 'fixed';
     container.style.left = '-9999px';
     document.body.appendChild(container);
-    for (const student of Student) {
+    for (const student of AllStudents) {
       // Create card div
       const cardDiv = document.createElement('div');
       cardDiv.style.position = 'relative';
@@ -247,143 +243,198 @@ export function IDCardPreview({
       container.removeChild(cardDiv);
     }
     document.body.removeChild(container);
-    // Download zip
     const blob = await zip.generateAsync({ type: 'blob' });
     saveAs(blob, 'idcards.zip');
   };
 
   // Generate all ID cards as PNGs and download as a single PDF
   const handleGeneratePDF = async () => {
-    if (!designUrl || !designFile?.type.startsWith('image/')) return;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-    // Create a hidden container for rendering
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-9999px';
-    document.body.appendChild(container);
-    let first = true;
-    for (const student of Student) {
-      // Create card div
-      const cardDiv = document.createElement('div');
-      cardDiv.style.position = 'relative';
-      cardDiv.style.display = 'inline-block';
-      cardDiv.style.background = '#fff';
-      // Design image
-      const img = document.createElement('img');
-      img.src = designUrl;
-      img.style.display = 'block';
-      cardDiv.appendChild(img);
-      // Wait for image to load to get size
-      await new Promise((resolve) => {
-        img.onload = resolve;
-      });
-      // Calculate scale factors
-      const scaleX = img.naturalWidth / previewImgSize.width;
-      const scaleY = img.naturalHeight / previewImgSize.height;
-      // Overlay passport photo
-      if (student.passport_photo) {
-        const photo = document.createElement('img');
-        photo.src = student.passport_photo;
-        photo.style.position = 'absolute';
-        photo.style.left = (photoPosition.x * scaleX) + 'px';
-        photo.style.top = (photoPosition.y * scaleY) + 'px';
-        photo.style.width = (photoPosition.width * scaleX) + 'px';
-        photo.style.height = (photoPosition.height * scaleY) + 'px';
-        photo.style.objectFit = 'cover';
-        cardDiv.appendChild(photo);
-      }
-      // Overlay all selected fields
-      overlays.forEach((overlay) => {
-        const value = (student as StudentWithExtras)[overlay.field] as string;
-        const nameDiv = document.createElement('div');
-        nameDiv.innerText = value ?? '';
-        nameDiv.style.position = 'absolute';
-        nameDiv.style.left = (overlay.position.x * scaleX) + 'px';
-        nameDiv.style.top = (overlay.position.y * scaleY) + 'px';
-        nameDiv.style.height = (32 * scaleY) + 'px';
-        nameDiv.style.display = 'flex';
-        nameDiv.style.alignItems = 'center';
-        nameDiv.style.justifyContent = 'center';
-        nameDiv.style.fontSize = (overlay.fontSize * scaleY) + 'px';
-        nameDiv.style.fontFamily = fontFamily;
-        nameDiv.style.fontWeight = '600';
-        nameDiv.style.color = overlay.fontColor;
-        nameDiv.style.textAlign = 'center';
-        nameDiv.style.overflow = 'hidden';
-        nameDiv.style.textOverflow = 'ellipsis';
-        nameDiv.style.whiteSpace = 'nowrap';
-        nameDiv.style.padding = '0 8px';
-        cardDiv.appendChild(nameDiv);
-      });
-      // Set cardDiv size to match design image
-      cardDiv.style.width = img.naturalWidth + 'px';
-      cardDiv.style.height = img.naturalHeight + 'px';
-      container.appendChild(cardDiv);
-      // Render to PNG
-      const canvas = await html2canvas(cardDiv, { backgroundColor: null, useCORS: true, scale: 2 });
-      const dataUrl = canvas.toDataURL('image/png');
-      // Add to PDF
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      // Fit image to page, keeping aspect ratio
-      let imgWidth = img.naturalWidth;
-      let imgHeight = img.naturalHeight;
-      const maxWidth = pageWidth - 40;
-      const maxHeight = pageHeight - 40;
-      if (imgWidth > maxWidth) {
-        imgHeight = (imgHeight * maxWidth) / imgWidth;
-        imgWidth = maxWidth;
-      }
-      if (imgHeight > maxHeight) {
-        imgWidth = (imgWidth * maxHeight) / imgHeight;
-        imgHeight = maxHeight;
-      }
-      if (!first) pdf.addPage();
-      pdf.addImage(dataUrl, 'PNG', (pageWidth - imgWidth) / 2, (pageHeight - imgHeight) / 2, imgWidth, imgHeight);
-      first = false;
-      container.removeChild(cardDiv);
-    }
-    document.body.removeChild(container);
-    pdf.save('idcards.pdf');
-  };
+  if (!designUrl || !designFile?.type.startsWith('image/')) return;
+  
+  // Create PDF with no margins
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'pt',
+    format: [previewImgSize.naturalWidth, previewImgSize.naturalHeight] // Set PDF size to match ID card dimensions
+  });
 
-  return (
-    <Box sx={{ p: 2 }}>
-      <Stack direction="row" justifyContent="flex-end" alignItems="center">
+  const container = document.createElement('div');
+  container.style.position = 'fixed';
+  container.style.left = '-9999px';
+  document.body.appendChild(container);
+  
+  let first = true;
+  
+  for (const student of AllStudents) {
+    // Create card div
+    const cardDiv = document.createElement('div');
+    cardDiv.style.position = 'relative';
+    cardDiv.style.display = 'inline-block';
+    cardDiv.style.background = '#fff';
+    
+    // Design image
+    const img = document.createElement('img');
+    img.src = designUrl;
+    img.style.display = 'block';
+    cardDiv.appendChild(img);
+    
+    // Wait for image to load to get size
+    await new Promise((resolve) => {
+      img.onload = resolve;
+    });
+    
+    // Calculate scale factors
+    const scaleX = img.naturalWidth / previewImgSize.width;
+    const scaleY = img.naturalHeight / previewImgSize.height;
+    
+    // Overlay passport photo
+    if (student.passport_photo) {
+      const photo = document.createElement('img');
+      photo.src = student.passport_photo;
+      photo.style.position = 'absolute';
+      photo.style.left = (photoPosition.x * scaleX) + 'px';
+      photo.style.top = (photoPosition.y * scaleY) + 'px';
+      photo.style.width = (photoPosition.width * scaleX) + 'px';
+      photo.style.height = (photoPosition.height * scaleY) + 'px';
+      photo.style.objectFit = 'cover';
+      cardDiv.appendChild(photo);
+    }
+    
+    // Overlay all selected fields
+    overlays.forEach((overlay) => {
+      const value = (student as StudentWithExtras)[overlay.field] as string;
+      const nameDiv = document.createElement('div');
+      nameDiv.innerText = value ?? '';
+      nameDiv.style.position = 'absolute';
+      nameDiv.style.left = (overlay.position.x * scaleX) + 'px';
+      nameDiv.style.top = (overlay.position.y * scaleY) + 'px';
+      nameDiv.style.height = (32 * scaleY) + 'px';
+      nameDiv.style.display = 'flex';
+      nameDiv.style.alignItems = 'center';
+      nameDiv.style.justifyContent = 'center';
+      nameDiv.style.fontSize = (overlay.fontSize * scaleY) + 'px';
+      nameDiv.style.fontFamily = fontFamily;
+      nameDiv.style.fontWeight = '600';
+      nameDiv.style.color = overlay.fontColor;
+      nameDiv.style.textAlign = 'center';
+      nameDiv.style.overflow = 'hidden';
+      nameDiv.style.textOverflow = 'ellipsis';
+      nameDiv.style.whiteSpace = 'nowrap';
+      nameDiv.style.padding = '0 8px';
+      cardDiv.appendChild(nameDiv);
+    });
+    
+    // Set cardDiv size to match design image
+    cardDiv.style.width = img.naturalWidth + 'px';
+    cardDiv.style.height = img.naturalHeight + 'px';
+    container.appendChild(cardDiv);
+    
+    // Render to PNG
+    const canvas = await html2canvas(cardDiv, { 
+      backgroundColor: null, 
+      useCORS: true, 
+      scale: 2,
+      width: img.naturalWidth,
+      height: img.naturalHeight
+    });
+    
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    // Add to PDF - use exact dimensions with no padding
+    if (!first) {
+      pdf.addPage([img.naturalWidth, img.naturalHeight], 'portrait'); // Add new page with same dimensions
+    }
+    
+    pdf.addImage(
+      dataUrl, 
+      'PNG', 
+      0, // x position (no margin)
+      0, // y position (no margin)
+      img.naturalWidth, // width
+      img.naturalHeight // height
+    );
+    
+    first = false;
+    container.removeChild(cardDiv);
+  }
+  
+  document.body.removeChild(container);
+  pdf.save('idcards.pdf');
+};
+
+   return (
+    <Box sx={{ 
+      p: 2,
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      overflow: 'hidden'
+    }}>
+    {/* Top buttons - now in a single row with space between */}
+    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      {/* Left side - Upload Design button (always visible) */}
+      <Button
+        variant="contained"
+        component="label"
+      >
+        Upload Design
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          hidden
+          onChange={handleDesignUpload}
+        />
+      </Button>
+
+      {/* Right side - Download buttons (only visible when design is uploaded) */}
+      {designUrl && (
         <Stack direction="row" spacing={2}>
           <Button
-            variant="outlined"
-            color="secondary"
-            onClick={onClearSelection}
-            disabled={Student.length === 0}
+            variant="contained"
+            sx={{
+              backgroundColor: '#1976d2',
+              color: '#fff',
+              '&:hover': { backgroundColor: '#1565c0' },
+              '&:disabled': { backgroundColor: '#e0e0e0' }
+            }}
+            onClick={handleGenerateAll}
+            disabled={!designFile?.type.startsWith('image/') || AllStudents.length === 0}
           >
-            Clear Selection
+            Download ZIP
           </Button>
           <Button
             variant="contained"
-            component="label"
+            sx={{
+              backgroundColor: '#388e3c',
+              color: '#fff',
+              '&:hover': { backgroundColor: '#2e7d32' },
+              '&:disabled': { backgroundColor: '#e0e0e0' }
+            }}
+            onClick={handleGeneratePDF}
+            disabled={!designFile?.type.startsWith('image/') || AllStudents.length === 0}
           >
-            Upload Design
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              hidden
-              onChange={handleDesignUpload}
-            />
+            Download PDF
           </Button>
         </Stack>
-      </Stack>
+      )}
+    </Stack>
 
-      <Box
-        sx={{
-          mt: 2,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-          gap: 2,
-        }}
-      >
-        {designUrl && (
-          <Box sx={{ overflow: 'auto', maxHeight: 500, borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', p: 1, bgcolor: '#fafafa' }}>
+    {/* Rest of your existing code remains the same */}
+    <Box sx={{ 
+      flex: 1,
+      overflowY: 'auto'
+    }}>
+      {/* Design preview section */}
+      {designUrl && (
+        <Box sx={{ 
+          overflow: 'auto', 
+          maxHeight: 500, 
+          borderRadius: 2, 
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
+          p: 1, 
+          bgcolor: '#fafafa',
+          mb: 2
+        }}>
             {designFile?.type.startsWith('image/') ? (
               <Box sx={{ position: 'relative', display: 'inline-block' }}>
                 <img
@@ -437,7 +488,6 @@ export function IDCardPreview({
                       size={undefined}
                       onDragStop={(_, d) => handleOverlayPosition(overlay.id, { x: d.x, y: d.y })}
                       onDoubleClick={(e: React.MouseEvent<HTMLElement>) => handleOverlayDoubleClick(e, overlay.id)}
-
                     >
                       <Box
                         sx={{
@@ -531,122 +581,125 @@ export function IDCardPreview({
             ) : null}
           </Box>
         )}
-      </Box>
 
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2, mb: 1 }}>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={handleAddOverlay}
-          sx={{ minWidth: "100%", height: 40 }}
-        >
-          Add Field
-        </Button>
-      </Stack>
-      <FormControl size="small" sx={{ width: "100%", mb: 2 }}>
-        <InputLabel id="font-family-label">Font Family</InputLabel>
-        <Select
-          labelId="font-family-label"
-          value={fontFamily}
-          label="Font Family"
-          onChange={(e) => setFontFamily(e.target.value)}
-        >
-          {fontFamilies.map((family) => (
-            <MenuItem key={family} value={family} style={{ fontFamily: family }}>
-              {family}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      {overlays.map((overlay, idx) => (
-        <Stack key={overlay.id} direction="row" spacing={2} alignItems="center" sx={{ mt: 1, mb: 1 }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id={`student-field-label-${overlay.id}`}>Field</InputLabel>
+        {/* Design controls (only shown when design is uploaded) */}
+         {designUrl && (
+        <>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={handleAddOverlay}
+            sx={{ width: '100%', mb: 2 }}
+          >
+            Add Field
+          </Button>
+          
+          <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+            <InputLabel>Font Family</InputLabel>
             <Select
-              labelId={`student-field-label-${overlay.id}`}
-              value={overlay.field}
-              label="Field"
-              onChange={(e) => handleOverlayChange(overlay.id, { field: e.target.value as keyof Student })}
+              value={fontFamily}
+              label="Font Family"
+              onChange={(e) => setFontFamily(e.target.value)}
             >
-              {studentFields.map((field) => (
-                <MenuItem key={field.key} value={field.key}>
-                  {field.label}
+              {fontFamilies.map((family) => (
+                <MenuItem key={family} value={family} style={{ fontFamily: family }}>
+                  {family}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
-          <Box sx={{ width: "100%" }}>
-            <Typography variant="body2" sx={{ mb: 0.5 }}>
-              Font Size
-            </Typography>
-            <Slider
-              min={10}
-              max={48}
-              value={overlay.fontSize}
-              onChange={(_, value) => handleOverlayChange(overlay.id, { fontSize: Number(value) })}
-              valueLabelDisplay="auto"
-            />
-          </Box>
-          <TextField
-            type="color"
-            label="Font Color"
-            value={overlay.fontColor}
-            onChange={(e) => handleOverlayChange(overlay.id, { fontColor: e.target.value })}
-            sx={{ width: 80, minWidth: 80 }}
-            InputLabelProps={{ shrink: true }}
-            variant="outlined"
-            size="small"
-          />
-          <Button
-            variant="outlined"
-            color="error"
-            onClick={() => handleRemoveOverlay(overlay.id)}
-            disabled={overlays.length === 1}
-            sx={{ minWidth: 40, height: 40 }}
-          >
-            <DeleteIcon />
-          </Button>
-        </Stack>
-      ))}
+            {overlays.map((overlay, idx) => (
+              <Stack key={overlay.id} direction="row" spacing={2} alignItems="center" sx={{ mt: 1, mb: 1 }}>
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel id={`student-field-label-${overlay.id}`}>Field</InputLabel>
+                  <Select
+                    labelId={`student-field-label-${overlay.id}`}
+                    value={overlay.field}
+                    label="Field"
+                    onChange={(e) => handleOverlayChange(overlay.id, { field: e.target.value as keyof Student })}
+                  >
+                    {studentFields.map((field) => (
+                      <MenuItem key={field.key} value={field.key}>
+                        {field.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Box sx={{ width: "100%" }}>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    Font Size
+                  </Typography>
+                  <Slider
+                    min={10}
+                    max={48}
+                    value={overlay.fontSize}
+                    onChange={(_, value) => handleOverlayChange(overlay.id, { fontSize: Number(value) })}
+                    valueLabelDisplay="auto"
+                  />
+                </Box>
+                <TextField
+                  type="color"
+                  label="Font Color"
+                  value={overlay.fontColor}
+                  onChange={(e) => handleOverlayChange(overlay.id, { fontColor: e.target.value })}
+                  sx={{ width: 80, minWidth: 80 }}
+                  InputLabelProps={{ shrink: true }}
+                  variant="outlined"
+                  size="small"
+                />
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={() => handleRemoveOverlay(overlay.id)}
+                  disabled={overlays.length === 1}
+                  sx={{ minWidth: 40, height: 40 }}
+                >
+                  <DeleteIcon />
+                </Button>
+              </Stack>
+            ))}
 
-    <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
-      <button
-        style={{
-          padding: '10px 24px',
-          background: '#1976d2',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          fontSize: 16,
-          fontWeight: 500,
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.08)',
-          transition: 'background 0.2s',
-        }}
-        onClick={handleGenerateAll}
-        disabled={!designUrl || !designFile?.type.startsWith('image/') || Student.length === 0}
-      >
-        Download as ZIP
-      </button>
-      <button
-        style={{
-          padding: '10px 24px',
-          background: '#388e3c',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          fontSize: 16,
-          fontWeight: 500,
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(56, 142, 60, 0.08)',
-          transition: 'background 0.2s',
-        }}
-        onClick={handleGeneratePDF}
-        disabled={!designUrl || !designFile?.type.startsWith('image/') || Student.length === 0}
-      >
-        Download as PDF
-      </button>
-    </Box>
+            {/* <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+              <button
+                style={{
+                  padding: '10px 24px',
+                  background: '#1976d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontSize: 16,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(25, 118, 210, 0.08)',
+                  transition: 'background 0.2s',
+                }}
+                onClick={handleGenerateAll}
+                disabled={!designUrl || !designFile?.type.startsWith('image/') || Student.length === 0}
+              >
+                Download as ZIP
+              </button>
+              <button
+                style={{
+                  padding: '10px 24px',
+                  background: '#388e3c',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontSize: 16,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(56, 142, 60, 0.08)',
+                  transition: 'background 0.2s',
+                }}
+                onClick={handleGeneratePDF}
+                disabled={!designUrl || !designFile?.type.startsWith('image/') || Student.length === 0}
+              >
+                Download as PDF
+              </button>
+            </Box> */}
+          </>
+        )}
+      </Box>
     </Box>
   );
 }

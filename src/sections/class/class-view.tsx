@@ -104,8 +104,6 @@ export function ClassView() {
   const [displayClasses, setDisplayClasses] = useState<DisplayClass[]>([]);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(12);
   const [orderBy, setOrderBy] = useState<keyof DisplayClass>('class_name');
   const [order, setOrder] = useState<'asc' | 'desc'>('asc');
   const [openDialog, setOpenDialog] = useState(false);
@@ -219,15 +217,6 @@ export function ClassView() {
     setOrderBy(field);
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   const filtered = useMemo(() => {
     const sorted = [...displayClasses].sort((a, b) => {
       const valA = a[orderBy];
@@ -247,13 +236,12 @@ export function ClassView() {
 
   // Group classes into rows of 4
   const groupedClasses = useMemo(() => {
-    const slicedClasses = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     const rows = [];
-    for (let i = 0; i < slicedClasses.length; i += 4) {
-      rows.push(slicedClasses.slice(i, i + 4));
+    for (let i = 0; i < filtered.length; i += 4) {
+      rows.push(filtered.slice(i, i + 4));
     }
     return rows;
-  }, [filtered, page, rowsPerPage]);
+  }, [filtered]);
 
   return (
     <DashboardContent>
@@ -313,24 +301,6 @@ export function ClassView() {
           </Typography>
         </Box>
       )}
-
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-        <Button
-          variant="outlined"
-          onClick={() => setPage(p => Math.max(0, p - 1))}
-          disabled={page === 0}
-          sx={{ mr: 1 }}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outlined"
-          onClick={() => setPage(p => p + 1)}
-          disabled={(page + 1) * rowsPerPage >= filtered.length}
-        >
-          Next
-        </Button>
-      </Box>
 
       <ClassForm
         open={openDialog}

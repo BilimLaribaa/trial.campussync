@@ -48,7 +48,7 @@ import {
     selectedStudents: Student[];
     onClassChange: (classId: string) => void;
     onSearchChange: (value: string) => void;
-    onSelectStudent: (studentOrStudents: Student | Student[]) => void;
+    onSelectStudent: (student: Student) => void;
   };
   
   export function StudentTable({
@@ -72,20 +72,6 @@ import {
       { id: 'gender', label: 'Gender', visible: false },
       { id: 'blood_group', label: 'Blood Group', visible: false },
     ]);
-  
-    const isAllSelected =
-      students.length > 0 &&
-      students.every((student) =>
-        selectedStudents.some((s) => s.id === student.id)
-      );
-  
-    const handleSelectAll = () => {
-      if (isAllSelected) {
-        onSelectStudent([]); // Pass an empty array to deselect all
-      } else {
-        onSelectStudent(students); // Pass the entire array to select all
-      }
-    };
   
     const handleColumnToggle = (columnId: string) => {
       setColumns((prevColumns) =>
@@ -191,11 +177,7 @@ import {
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
-                  <Checkbox
-                    color="primary"
-                    checked={isAllSelected}
-                    onChange={handleSelectAll}
-                  />
+                  {/* Header checkbox removed since we're using single selection */}
                 </TableCell>
                 {columns
                   .filter((column) => column.visible)
@@ -230,7 +212,7 @@ import {
                       <Checkbox
                         color="primary"
                         checked={selectedStudents.some((s) => s.id === student.id)}
-                        onChange={() => onSelectStudent(student)} // Pass a single student
+                        onChange={() => onSelectStudent(student)}
                       />
                     </TableCell>
                     {columns.find((col) => col.id === 'photo')?.visible && (

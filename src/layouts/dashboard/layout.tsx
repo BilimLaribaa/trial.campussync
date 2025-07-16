@@ -11,8 +11,8 @@ import Alert from '@mui/material/Alert';
 import { useTheme } from '@mui/material/styles';
 
 import { _langs, _notifications } from 'src/_mock';
-import { SchoolContext, SchoolProvider } from 'src/contexts/SchoolContext';
 import { StudentSearchProvider } from 'src/contexts/StudentSearchContext';
+import { SchoolContext, SchoolProvider } from 'src/contexts/SchoolContext';
 
 import { Version } from 'src/components/version';
 import { Settings } from 'src/components/settings';
@@ -30,7 +30,7 @@ import { HeaderSection } from '../core/header-section';
 import { LayoutSection } from '../core/layout-section';
 import { MenuButton } from '../components/menu-button';
 import { AccountPopover } from '../components/account-popover';
-import { LanguagePopover } from '../components/language-popover';
+// import { LanguagePopover } from '../components/language-popover';
 import { NotificationsPopover } from '../components/notifications-popover';
 
 import type { MainSectionProps } from '../core/main-section';
@@ -101,7 +101,7 @@ function DashboardLayoutContent({
           <Searchbar />
 
           {/** @slot Language popover */}
-          <LanguagePopover data={_langs} />
+          {/* <LanguagePopover data={_langs} /> */}
 
           {/** @slot Notifications popover */}
           <NotificationsPopover data={_notifications} />

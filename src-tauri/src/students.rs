@@ -1,12 +1,14 @@
 use crate::DbState;
 use rusqlite::{params, Connection, Row};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tauri::{AppHandle, Manager, State};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io::Write;
 use base64::{engine::general_purpose, Engine as _};
 use log;
+// use chrono::Local;
 
 // Helper function for document directory handling
 fn ensure_documents_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
@@ -20,6 +22,7 @@ fn ensure_documents_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
     
     Ok(docs_dir)
 }
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StudentCore {
@@ -96,47 +99,27 @@ pub struct Student {
 
 
 
+
+
 #[tauri::command]
-pub async fn excel_bulk_insert(
+pub async fn bulk_create_students(
     state: State<'_, DbState>,
-    students: Vec<Student>,
-) -> Result<Vec<i64>, String> {
+    students: Vec<Value>,
+) -> Result<usize, String> {
     let mut conn = state.0.lock().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    let mut student_ids = Vec::new();
+    let mut count = 0;
 
-    for student in students {
-        // Check if class exists
-        let class_exists: i64 = tx.query_row(
-            "SELECT COUNT(1) FROM classes WHERE id = ?",
-            params![&student.core.class_id],
-            |row| row.get(0),
-        ).map_err(|e| format!("Class validation failed: {}", e))?;
-
-        if class_exists == 0 {
-            return Err(format!("Class with id {} does not exist", student.core.class_id));
-        }
-
-        // Check if GR number already exists (in this batch or database)
-        let gr_exists: i64 = tx.query_row(
-            "SELECT COUNT(1) FROM students WHERE gr_number = ?",
-            params![&student.core.gr_number],
-            |row| row.get(0),
-        ).map_err(|e| format!("GR number check failed: {}", e))?;
-
-        if gr_exists > 0 {
-            return Err(format!("Student with GR number {} already exists", student.core.gr_number));
-        }
-
-        // Insert core student data
-        tx.execute(
-            "INSERT INTO students (
+    {
+        let mut stmt = tx.prepare(
+            r#"
+            INSERT INTO students (
                 gr_number, roll_number, full_name, dob, gender,
                 mother_name, father_name, father_occupation, mother_occupation, annual_income,
                 nationality, profile_image, class_id, section, academic_year,
-                email, mobile_number, alternate_contact_number, address, city,
-                state, country, postal_code, guardian_contact_info,
+                email, mobile_number, alternate_contact_number,
+                address, city, state, country, postal_code, guardian_contact_info,
                 blood_group, status, admission_date, weight_kg, height_cm, hb_range,
                 medical_conditions, emergency_contact_person, emergency_contact,
                 birth_certificate, transfer_certificate, previous_academic_records,
@@ -147,70 +130,89 @@ pub async fn excel_bulk_insert(
                 ?6, ?7, ?8, ?9, ?10,
                 ?11, ?12, ?13, ?14, ?15,
                 ?16, ?17, ?18, ?19, ?20,
-                ?21, ?22, ?23, ?24,
-                ?25, ?26, ?27, ?28, ?29, ?30,
-                ?31, ?32, ?33,
-                ?34, ?35, ?36,
-                ?37, ?38, ?39, ?40,
+                ?21, ?22, ?23, ?24, ?25,
+                ?26, ?27, ?28, ?29, ?30,
+                ?31, ?32, ?33, ?34, ?35,
+                ?36, ?37, ?38, ?39, ?40,
                 ?41, ?42
-            )",
-            params![
-                // Core fields
-                student.core.gr_number,
-                student.core.roll_number,
-                student.core.full_name,
-                student.core.dob,
-                student.core.gender,
-                student.core.mother_name,
-                student.core.father_name,
-                student.core.father_occupation,
-                student.core.mother_occupation,
-                student.core.annual_income,
-                student.core.nationality,
-                student.core.profile_image,
-                student.core.class_id,
-                student.core.section,
-                student.core.academic_year,
-                // Contact fields
-                student.contact.email,
-                student.contact.mobile_number,
-                student.contact.alternate_contact_number,
-                student.contact.address,
-                student.contact.city,
-                student.contact.state,
-                student.contact.country,
-                student.contact.postal_code,
-                student.contact.guardian_contact_info,
-                // Health fields
-                student.health.blood_group,
-                student.health.status,
-                student.health.admission_date,
-                student.health.weight_kg,
-                student.health.height_cm,
-                student.health.hb_range,
-                student.health.medical_conditions,
-                student.health.emergency_contact_person,
-                student.health.emergency_contact,
-                // Document fields
-                student.docs.birth_certificate,
-                student.docs.transfer_certificate,
-                student.docs.previous_academic_records,
-                student.docs.address_proof,
-                student.docs.id_proof,
-                student.docs.passport_photo,
-                student.docs.medical_certificate,
-                student.docs.vaccination_certificate,
-                student.docs.other_documents,
-            ],
+            )
+            "#,
         ).map_err(|e| e.to_string())?;
 
-        student_ids.push(tx.last_insert_rowid());
+        for (index, student) in students.iter().enumerate() {
+            // Required fields with validation
+            let gr_number = student["gr_number"].as_str()
+                .ok_or_else(|| format!("Student at index {} has missing or invalid gr_number (must be string)", index))?;
+
+            let full_name = student["full_name"].as_str()
+                .ok_or_else(|| format!("Student at index {} has missing full_name", index))?;
+
+            let gender = student["gender"].as_str()
+                .ok_or_else(|| format!("Student at index {} has missing gender", index))?;
+
+            let mother_name = student["mother_name"].as_str()
+                .ok_or_else(|| format!("Student at index {} has missing mother_name", index))?;
+
+            let father_name = student["father_name"].as_str()
+                .ok_or_else(|| format!("Student at index {} has missing father_name", index))?;
+
+            let class_id = student["class_id"].as_str()
+                .ok_or_else(|| format!("Student at index {} has missing class_id", index))?;
+
+            stmt.execute(params![
+                // Required fields
+                gr_number,
+                student["roll_number"].as_str().unwrap_or(""),
+                full_name,
+                student["dob"].as_str().unwrap_or(""),
+                gender,
+                mother_name,
+                father_name,
+                // Optional fields
+                student["father_occupation"].as_str().unwrap_or(""),
+                student["mother_occupation"].as_str().unwrap_or(""),
+                student["annual_income"].as_f64().unwrap_or(0.0),
+                student["nationality"].as_str().unwrap_or(""),
+                student["profile_image"].as_str().unwrap_or(""),
+                class_id,
+                student["section"].as_str().unwrap_or(""),
+                student["academic_year"].as_str().unwrap_or(""),
+                student["email"].as_str().unwrap_or(""),
+                student["mobile_number"].as_str().unwrap_or(""),
+                student["alternate_contact_number"].as_str().unwrap_or(""),
+                student["address"].as_str().unwrap_or(""),
+                student["city"].as_str().unwrap_or(""),
+                student["state"].as_str().unwrap_or(""),
+                student["country"].as_str().unwrap_or(""),
+                student["postal_code"].as_str().unwrap_or(""),
+                student["guardian_contact_info"].as_str().unwrap_or(""),
+                student["blood_group"].as_str().unwrap_or(""),
+                student["status"].as_str().unwrap_or(""),
+                student["admission_date"].as_str().unwrap_or(""),
+                student["weight_kg"].as_f64().unwrap_or(0.0),
+                student["height_cm"].as_f64().unwrap_or(0.0),
+                student["hb_range"].as_str().unwrap_or(""),
+                student["medical_conditions"].as_str().unwrap_or(""),
+                student["emergency_contact_person"].as_str().unwrap_or(""),
+                student["emergency_contact"].as_str().unwrap_or(""),
+                student["birth_certificate"].as_str().unwrap_or(""),
+                student["transfer_certificate"].as_str().unwrap_or(""),
+                student["previous_academic_records"].as_str().unwrap_or(""),
+                student["address_proof"].as_str().unwrap_or(""),
+                student["id_proof"].as_str().unwrap_or(""),
+                student["passport_photo"].as_str().unwrap_or(""),
+                student["medical_certificate"].as_str().unwrap_or(""),
+                student["vaccination_certificate"].as_str().unwrap_or(""),
+                student["other_documents"].as_str().unwrap_or(""),
+            ]).map_err(|e| format!("Failed to insert student at index {}: {}", index, e))?;
+
+            count += 1;
+        }
     }
 
     tx.commit().map_err(|e| e.to_string())?;
-    Ok(student_ids)
+    Ok(count)
 }
-
 #[tauri::command]
 pub fn get_students(
     state: State<'_, DbState>,
