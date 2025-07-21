@@ -105,12 +105,30 @@ pub struct Student {
 pub async fn bulk_create_students(
     state: State<'_, DbState>,
     students: Vec<Value>,
+    class_id: i64,  // Keep snake_case here
 ) -> Result<usize, String> {
+    // Debug log to see what parameters were received
+    println!(
+        "Received parameters - students: {} items, class_id: {}", 
+        students.len(), 
+        class_id
+    );
+
     let mut conn = state.0.lock().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    let mut count = 0;
+    // Verify the class exists first
+    let class_exists: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM classes WHERE id = ?1)",
+        [&class_id],
+        |row| row.get(0),
+    ).map_err(|e| format!("Error verifying class: {}", e))?;
 
+    if !class_exists {
+        return Err(format!("Class with ID {} does not exist", class_id));
+    }
+
+    let mut count = 0;
     {
         let mut stmt = tx.prepare(
             r#"
@@ -156,9 +174,6 @@ pub async fn bulk_create_students(
             let father_name = student["father_name"].as_str()
                 .ok_or_else(|| format!("Student at index {} has missing father_name", index))?;
 
-            let class_id = student["class_id"].as_str()
-                .ok_or_else(|| format!("Student at index {} has missing class_id", index))?;
-
             stmt.execute(params![
                 // Required fields
                 gr_number,
@@ -174,7 +189,7 @@ pub async fn bulk_create_students(
                 student["annual_income"].as_f64().unwrap_or(0.0),
                 student["nationality"].as_str().unwrap_or(""),
                 student["profile_image"].as_str().unwrap_or(""),
-                class_id,
+                &class_id, // Use the class_id parameter directly
                 student["section"].as_str().unwrap_or(""),
                 student["academic_year"].as_str().unwrap_or(""),
                 student["email"].as_str().unwrap_or(""),
@@ -213,6 +228,7 @@ pub async fn bulk_create_students(
     tx.commit().map_err(|e| e.to_string())?;
     Ok(count)
 }
+
 #[tauri::command]
 pub fn get_students(
     state: State<'_, DbState>,
@@ -330,6 +346,25 @@ pub fn get_students(
     };
 
     Ok(students)
+}
+
+#[tauri::command]
+pub fn get_student_headers(state: State<'_, DbState>) -> Result<Vec<String>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    
+    let mut stmt = conn.prepare("PRAGMA table_info(students)").map_err(|e| e.to_string())?;
+    let columns = stmt.query_map([], |row| {
+        Ok(row.get::<_, String>(1)?)  // Column name is at index 1
+    }).map_err(|e| e.to_string())?;
+    
+    let headers: Vec<String> = columns.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
+    
+    // Filter out metadata columns
+    let filtered_headers = headers.into_iter()
+        .filter(|h| !["id", "created_at", "updated_at"].contains(&h.as_str()))
+        .collect();
+    
+    Ok(filtered_headers)
 }
 
 #[tauri::command]
@@ -588,6 +623,7 @@ pub async fn delete_student(
     log::info!("Deleting student {}", id);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
+    // Get document paths (if they exist)
     let docs = conn.query_row(
         "SELECT birth_certificate, transfer_certificate, previous_academic_records,
                 address_proof, id_proof, passport_photo, medical_certificate, 
@@ -607,9 +643,11 @@ pub async fn delete_student(
         }),
     ).ok();
 
+    // Delete student record first
     conn.execute("DELETE FROM students WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
 
+    // Delete associated files if they exist (ignore errors)
     if let Some(docs) = docs {
         let docs_dir = ensure_documents_dir(&app_handle)?;
         let doc_fields = [
@@ -627,15 +665,13 @@ pub async fn delete_student(
         for doc in doc_fields.into_iter().flatten() {
             let file_path = docs_dir.join(&doc);
             if file_path.exists() {
-                fs::remove_file(file_path)
-                    .map_err(|e| format!("Failed to delete document {}: {}", doc, e))?;
+                let _ = fs::remove_file(file_path); // Ignore result
             }
         }
     }
 
     Ok(())
 }
-
 #[tauri::command]
 pub async fn get_student_document_base64(
     app_handle: tauri::AppHandle,
@@ -697,7 +733,7 @@ pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
                 class_id TEXT NOT NULL,
                 section TEXT,
                 academic_year TEXT,
-                
+            
                 -- Contact Information
                 email TEXT,
                 mobile_number TEXT,

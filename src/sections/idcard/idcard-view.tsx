@@ -209,7 +209,6 @@ export function IdCardView() {
             <IDCardPreview
               Student={selectedStudents?.length > 0 ? selectedStudents : filteredStudents || []}
               AllStudents={allFilteredStudents}  
-              // onClearSelection={handleClearSelection}
             />
           </Box>
         </Card>

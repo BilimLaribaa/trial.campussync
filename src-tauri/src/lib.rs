@@ -107,7 +107,7 @@ pub fn run() {
             students::upload_student_file,
             students::get_students,
             students::bulk_create_students,
-            // students::save_document_dialog,
+            students::get_student_headers,
             // students::copy_file,
             // Image commands
             image::save_image,
