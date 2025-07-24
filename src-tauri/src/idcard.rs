@@ -22,7 +22,7 @@
 //     pub class_id: String,
 //     pub section: Option<String>,
 //     pub academic_year: Option<String>,
-    
+
 //     // Contact Information
 //     pub email: Option<String>,
 //     pub mobile_number: Option<String>,
@@ -33,7 +33,7 @@
 //     pub country: Option<String>,
 //     pub postal_code: Option<String>,
 //     pub guardian_contact_info: Option<String>,
-    
+
 //     // Health & Admission Information
 //     pub blood_group: Option<String>,
 //     pub status: Option<String>,
@@ -44,7 +44,7 @@
 //     pub medical_conditions: Option<String>,
 //     pub emergency_contact_person: Option<String>,
 //     pub emergency_contact: Option<String>,
-    
+
 //     // Documents Information
 //     pub birth_certificate: Option<String>,
 //     pub transfer_certificate: Option<String>,
@@ -60,9 +60,9 @@
 // #[command]
 // pub async fn get_all_students_for_idcards(state: State<'_, DbState>) -> Result<Vec<Student>, String> {
 //     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
+
 //     let mut stmt = conn.prepare(
-//         "SELECT 
+//         "SELECT
 //             id, gr_number, roll_number, full_name, dob, gender,
 //             mother_name, father_name, father_occupation, mother_occupation,
 //             annual_income, nationality, profile_image, class_id, section,
@@ -70,7 +70,7 @@
 //             country, postal_code, blood_group, status, admission_date
 //          FROM students"
 //     ).map_err(|e| e.to_string())?;
-    
+
 //     let students = stmt.query_map([], |row| {
 //         Ok(Student {
 //             id: row.get(0)?,
@@ -120,6 +120,6 @@
 //         })
 //     }).map_err(|e| e.to_string())?
 //     .collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
-    
+
 //     Ok(students)
 // }

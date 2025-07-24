@@ -1,33 +1,39 @@
 use crate::DbState;
+use base64::{engine::general_purpose, Engine as _};
+use log;
 use rusqlite::{params, Connection, Row};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Manager, State};
 use std::fs;
-use std::path::{Path, PathBuf};
 use std::io::Write;
-use base64::{engine::general_purpose, Engine as _};
-use log;
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, Manager, State};
+// use uuid::Uuid;
 // use chrono::Local;
+
+
+
+
+
+
 
 // Helper function for document directory handling
 fn ensure_documents_dir(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let docs_dir = app_handle.path()
+    let docs_dir = app_handle
+        .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to get app dir: {}", e))?
         .join("Students_Documents");
-    
-    fs::create_dir_all(&docs_dir)
-        .map_err(|e| format!("Failed to create docs dir: {}", e))?;
-    
+
+    fs::create_dir_all(&docs_dir).map_err(|e| format!("Failed to create docs dir: {}", e))?;
+
     Ok(docs_dir)
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StudentCore {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<i64>,  // Now optional
+    pub id: Option<i64>, // Now optional
     pub gr_number: String,
     pub roll_number: Option<String>,
     pub full_name: String,
@@ -97,20 +103,16 @@ pub struct Student {
     pub docs: StudentDocs,
 }
 
-
-
-
-
 #[tauri::command]
 pub async fn bulk_create_students(
     state: State<'_, DbState>,
     students: Vec<Value>,
-    class_id: i64,  // Keep snake_case here
+    class_id: i64, // Keep snake_case here
 ) -> Result<usize, String> {
     // Debug log to see what parameters were received
     println!(
-        "Received parameters - students: {} items, class_id: {}", 
-        students.len(), 
+        "Received parameters - students: {} items, class_id: {}",
+        students.len(),
         class_id
     );
 
@@ -118,11 +120,13 @@ pub async fn bulk_create_students(
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     // Verify the class exists first
-    let class_exists: bool = tx.query_row(
-        "SELECT EXISTS(SELECT 1 FROM classes WHERE id = ?1)",
-        [&class_id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Error verifying class: {}", e))?;
+    let class_exists: bool = tx
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM classes WHERE id = ?1)",
+            [&class_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Error verifying class: {}", e))?;
 
     if !class_exists {
         return Err(format!("Class with ID {} does not exist", class_id));
@@ -130,8 +134,9 @@ pub async fn bulk_create_students(
 
     let mut count = 0;
     {
-        let mut stmt = tx.prepare(
-            r#"
+        let mut stmt = tx
+            .prepare(
+                r#"
             INSERT INTO students (
                 gr_number, roll_number, full_name, dob, gender,
                 mother_name, father_name, father_occupation, mother_occupation, annual_income,
@@ -155,23 +160,32 @@ pub async fn bulk_create_students(
                 ?41, ?42
             )
             "#,
-        ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
 
         for (index, student) in students.iter().enumerate() {
             // Required fields with validation
-            let gr_number = student["gr_number"].as_str()
-                .ok_or_else(|| format!("Student at index {} has missing or invalid gr_number (must be string)", index))?;
+            let gr_number = student["gr_number"].as_str().ok_or_else(|| {
+                format!(
+                    "Student at index {} has missing or invalid gr_number (must be string)",
+                    index
+                )
+            })?;
 
-            let full_name = student["full_name"].as_str()
+            let full_name = student["full_name"]
+                .as_str()
                 .ok_or_else(|| format!("Student at index {} has missing full_name", index))?;
 
-            let gender = student["gender"].as_str()
+            let gender = student["gender"]
+                .as_str()
                 .ok_or_else(|| format!("Student at index {} has missing gender", index))?;
 
-            let mother_name = student["mother_name"].as_str()
+            let mother_name = student["mother_name"]
+                .as_str()
                 .ok_or_else(|| format!("Student at index {} has missing mother_name", index))?;
 
-            let father_name = student["father_name"].as_str()
+            let father_name = student["father_name"]
+                .as_str()
                 .ok_or_else(|| format!("Student at index {} has missing father_name", index))?;
 
             stmt.execute(params![
@@ -219,7 +233,8 @@ pub async fn bulk_create_students(
                 student["medical_certificate"].as_str().unwrap_or(""),
                 student["vaccination_certificate"].as_str().unwrap_or(""),
                 student["other_documents"].as_str().unwrap_or(""),
-            ]).map_err(|e| format!("Failed to insert student at index {}: {}", index, e))?;
+            ])
+            .map_err(|e| format!("Failed to insert student at index {}: {}", index, e))?;
 
             count += 1;
         }
@@ -230,10 +245,7 @@ pub async fn bulk_create_students(
 }
 
 #[tauri::command]
-pub fn get_students(
-    state: State<'_, DbState>,
-    id: Option<i64>,
-) -> Result<Vec<Student>, String> {
+pub fn get_students(state: State<'_, DbState>, id: Option<i64>) -> Result<Vec<Student>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
     // Base query - same for both cases
@@ -332,15 +344,18 @@ pub fn get_students(
     let students = match id {
         Some(student_id) => {
             // For single student query
-            let student = stmt.query_row([student_id], parse_student_row)
+            let student = stmt
+                .query_row([student_id], parse_student_row)
                 .map_err(|e| e.to_string())?;
             vec![student]
-        },
+        }
         None => {
             // For all students query
-            let student_iter = stmt.query_map([], |row| parse_student_row(row))
+            let student_iter = stmt
+                .query_map([], |row| parse_student_row(row))
                 .map_err(|e| e.to_string())?;
-            student_iter.collect::<Result<Vec<_>, _>>()
+            student_iter
+                .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| e.to_string())?
         }
     };
@@ -351,35 +366,41 @@ pub fn get_students(
 #[tauri::command]
 pub fn get_student_headers(state: State<'_, DbState>) -> Result<Vec<String>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
-    let mut stmt = conn.prepare("PRAGMA table_info(students)").map_err(|e| e.to_string())?;
-    let columns = stmt.query_map([], |row| {
-        Ok(row.get::<_, String>(1)?)  // Column name is at index 1
-    }).map_err(|e| e.to_string())?;
-    
-    let headers: Vec<String> = columns.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
-    
+
+    let mut stmt = conn
+        .prepare("PRAGMA table_info(students)")
+        .map_err(|e| e.to_string())?;
+    let columns = stmt
+        .query_map([], |row| {
+            Ok(row.get::<_, String>(1)?) // Column name is at index 1
+        })
+        .map_err(|e| e.to_string())?;
+
+    let headers: Vec<String> = columns
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+
     // Filter out metadata columns
-    let filtered_headers = headers.into_iter()
+    let filtered_headers = headers
+        .into_iter()
         .filter(|h| !["id", "created_at", "updated_at"].contains(&h.as_str()))
         .collect();
-    
+
     Ok(filtered_headers)
 }
 
 #[tauri::command]
-pub async fn create_student1(
-    state: State<'_, DbState>,
-    core: StudentCore,
-) -> Result<i64, String> {
+pub async fn create_student1(state: State<'_, DbState>, core: StudentCore) -> Result<i64, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
     // Check if class exists
-    let class_exists: i64 = conn.query_row(
-        "SELECT COUNT(1) FROM classes WHERE id = ?",
-        params![&core.class_id],
-        |row| row.get(0),
-    ).map_err(|e| format!("Class validation failed: {}", e))?;
+    let class_exists: i64 = conn
+        .query_row(
+            "SELECT COUNT(1) FROM classes WHERE id = ?",
+            params![&core.class_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Class validation failed: {}", e))?;
 
     if class_exists == 0 {
         return Err(format!("Class with id {} does not exist", core.class_id));
@@ -547,7 +568,10 @@ pub async fn create_student4(
     id: i64,
 ) -> Result<(), String> {
     let _ = ensure_documents_dir(&app_handle)?;
-    let conn = state.0.lock().map_err(|e| format!("Failed to lock DB: {}", e))?;
+    let conn = state
+        .0
+        .lock()
+        .map_err(|e| format!("Failed to lock DB: {}", e))?;
 
     conn.execute(
         "UPDATE students SET 
@@ -605,8 +629,8 @@ pub async fn upload_student_file(
     let dest_path = docs_dir.join(&new_filename);
 
     // Write the file bytes to destination
-    let mut file = fs::File::create(&dest_path)
-        .map_err(|e| format!("Failed to create file: {}", e))?;
+    let mut file =
+        fs::File::create(&dest_path).map_err(|e| format!("Failed to create file: {}", e))?;
     file.write_all(&file_bytes)
         .map_err(|e| format!("Failed to write file: {}", e))?;
 
@@ -624,24 +648,28 @@ pub async fn delete_student(
     let conn = state.0.lock().map_err(|e| e.to_string())?;
 
     // Get document paths (if they exist)
-    let docs = conn.query_row(
-        "SELECT birth_certificate, transfer_certificate, previous_academic_records,
+    let docs = conn
+        .query_row(
+            "SELECT birth_certificate, transfer_certificate, previous_academic_records,
                 address_proof, id_proof, passport_photo, medical_certificate, 
                 vaccination_certificate, other_documents
          FROM students WHERE id = ?1",
-        [id],
-        |row| Ok(StudentDocs {
-            birth_certificate: row.get(0)?,
-            transfer_certificate: row.get(1)?,
-            previous_academic_records: row.get(2)?,
-            address_proof: row.get(3)?,
-            id_proof: row.get(4)?,
-            passport_photo: row.get(5)?,
-            medical_certificate: row.get(6)?,
-            vaccination_certificate: row.get(7)?,
-            other_documents: row.get(8)?,
-        }),
-    ).ok();
+            [id],
+            |row| {
+                Ok(StudentDocs {
+                    birth_certificate: row.get(0)?,
+                    transfer_certificate: row.get(1)?,
+                    previous_academic_records: row.get(2)?,
+                    address_proof: row.get(3)?,
+                    id_proof: row.get(4)?,
+                    passport_photo: row.get(5)?,
+                    medical_certificate: row.get(6)?,
+                    vaccination_certificate: row.get(7)?,
+                    other_documents: row.get(8)?,
+                })
+            },
+        )
+        .ok();
 
     // Delete student record first
     conn.execute("DELETE FROM students WHERE id = ?1", params![id])
@@ -678,10 +706,12 @@ pub async fn get_student_document_base64(
     file_name: String,
 ) -> Result<String, String> {
     let path = get_student_document_path(app_handle, file_name.clone()).await?;
-    let content = fs::read(&path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let content = fs::read(&path).map_err(|e| format!("Failed to read file: {}", e))?;
 
-    let mime_type = match Path::new(&file_name).extension().and_then(|ext| ext.to_str()) {
+    let mime_type = match Path::new(&file_name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+    {
         Some("jpg" | "jpeg") => "image/jpeg",
         Some("png") => "image/png",
         Some("gif") => "image/gif",
@@ -702,11 +732,10 @@ pub async fn get_student_document_path(
     Ok(docs_dir.join(file_name).to_string_lossy().into_owned())
 }
 
-
 pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
     //  conn.execute("DROP TABLE IF EXISTS students", [])?;
     conn.execute("PRAGMA foreign_keys = ON", [])?;
-    
+
     let table_exists: i64 = conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='students'",
         [],
@@ -777,4 +806,4 @@ pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     Ok(())
-} 
+}

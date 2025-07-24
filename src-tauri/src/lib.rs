@@ -1,13 +1,13 @@
+mod academic_year;
 mod class;
 mod db;
 mod enquiry;
+mod idcard;
 mod image;
 mod migration;
 mod school;
 mod staff;
-mod students; 
-mod idcard; 
-mod academic_year; 
+mod students;
 
 use db::establish_connection;
 use log::error;
@@ -15,9 +15,10 @@ use migration::run_migrations;
 use rusqlite::Connection;
 use std::fs;
 use std::sync::Mutex;
-use tauri::Manager;
 use tauri::Runtime;
-
+use std::path::{Path, PathBuf};
+use uuid::Uuid;
+use tauri::{AppHandle, Manager};
 // Database state that will be shared across the application
 pub struct DbState(pub Mutex<Connection>);
 
@@ -29,9 +30,58 @@ async fn read_file_content(path: String) -> Result<Vec<u8>, String> {
     }
 }
 
+
+// functions and hanlde save command functionality for passport photo in add student view start
+fn generate_filename(filepath: &str) -> String {
+  let original_file = Path::new(filepath);
+
+  let extension = original_file
+      .extension()
+      .and_then(|ext| ext.to_str())
+      .unwrap_or("");
+
+  if extension.is_empty() {
+      Uuid::new_v4().to_string()
+  } else {
+      format!("{}.{}", Uuid::new_v4(), extension)
+  }
+}
+#[tauri::command]
+async fn save_passport_photo(app_handle: AppHandle, passportFilePath: String) -> Result<String, String> {
+    let original_file = PathBuf::from(&passportFilePath);
+
+    if !original_file.exists() || !original_file.is_file() {
+        return Err("Source file does not exist or is not a file".into());
+    }
+
+    let filepath_str = original_file
+        .to_str()
+        .ok_or("Invalid UTF-8 in file path")?;
+
+    let filename = generate_filename(filepath_str);
+
+    let appdata = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let imagesfolder = appdata.join("Students_Documents");
+    let newfile = imagesfolder.join(filename);
+
+    fs::create_dir_all(&imagesfolder).map_err(|e| e.to_string())?;
+    fs::copy(&original_file, &newfile).map_err(|e| e.to_string())?;
+
+    newfile
+        .to_str()
+        .map(|s| s.to_string())
+        .ok_or("Failed to convert destination path to string".into())
+}
+// functions and hanlde save command functionality for passport photo in add student view end
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -64,6 +114,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // Enquiry commands
+            save_passport_photo,
             read_file_content,
             enquiry::create_enquiry,
             enquiry::get_enquiry,
@@ -76,7 +127,6 @@ pub fn run() {
             enquiry::create_note,
             enquiry::get_enquiry_notes,
             enquiry::add_enquiry_note,
-           
             // School commands
             school::get_school_details,
             school::upsert_school_details,
@@ -97,28 +147,28 @@ pub fn run() {
             staff::update_staff,
             staff::delete_staff,
             // Student commands (updated)
-            students::create_student1,  // Create student command
-            students::create_student2,  // Get student command
-            students::create_student3,  // Get student command
-            students::create_student4,  // Create student command
-            students::delete_student,   // delet student command
+            students::create_student1,             // Create student command
+            students::create_student2,             // Get student command
+            students::create_student3,             // Get student command
+            students::create_student4,             // Create student command
+            students::delete_student,              // delet student command
             students::get_student_document_path,   // delet student command
-            students::get_student_document_base64,   // delet student command
+            students::get_student_document_base64, // delet student command
             students::upload_student_file,
             students::get_students,
             students::bulk_create_students,
             students::get_student_headers,
+        
             // students::copy_file,
             // Image commands
-            image::save_image,
             image::get_image_path,
             image::delete_image,
             // academic_year commands
-             academic_year::upsert_academic_year,
-             academic_year::get_current_academic_year,
-             academic_year::get_all_academic_years,
-             academic_year::set_current_academic_year,
-             academic_year::delete_academic_year,
+            academic_year::upsert_academic_year,
+            academic_year::get_current_academic_year,
+            academic_year::get_all_academic_years,
+            academic_year::set_current_academic_year,
+            academic_year::delete_academic_year,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

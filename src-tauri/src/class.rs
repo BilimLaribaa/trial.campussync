@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-use rusqlite::{Connection, params};
-use tauri::State;
-use crate::DbState;
 use crate::academic_year::AcademicYear;
+use crate::DbState;
+use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
+use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Class {
@@ -20,25 +20,63 @@ pub struct Class {
     pub academic_year_details: Option<AcademicYear>,
 }
 
-
 fn get_default_classes() -> Vec<&'static str> {
     vec![
         // Pre-primary
-        "Nursery A", "Nursery B", "Nursery C", "Nursery D",
-        "LKG A", "LKG B", "LKG C", "LKG D",
-        "UKG A", "UKG B", "UKG C", "UKG D",
+        "Nursery A",
+        "Nursery B",
+        "Nursery C",
+        "Nursery D",
+        "LKG A",
+        "LKG B",
+        "LKG C",
+        "LKG D",
+        "UKG A",
+        "UKG B",
+        "UKG C",
+        "UKG D",
         // Primary (Class 1-5)
-        "Class-1 A", "Class-1 B", "Class-1 C", "Class-1 D",
-        "Class-2 A", "Class-2 B", "Class-2 C", "Class-2 D",
-        "Class-3 A", "Class-3 B", "Class-3 C", "Class-3 D",
-        "Class-4 A", "Class-4 B", "Class-4 C", "Class-4 D",
-        "Class-5 A", "Class-5 B", "Class-5 C", "Class-5 D",
+        "Class-1 A",
+        "Class-1 B",
+        "Class-1 C",
+        "Class-1 D",
+        "Class-2 A",
+        "Class-2 B",
+        "Class-2 C",
+        "Class-2 D",
+        "Class-3 A",
+        "Class-3 B",
+        "Class-3 C",
+        "Class-3 D",
+        "Class-4 A",
+        "Class-4 B",
+        "Class-4 C",
+        "Class-4 D",
+        "Class-5 A",
+        "Class-5 B",
+        "Class-5 C",
+        "Class-5 D",
         // High School (Class 6-10)
-        "Class-6 A", "Class-6 B", "Class-6 C", "Class-6 D",
-        "Class-7 A", "Class-7 B", "Class-7 C", "Class-7 D",
-        "Class-8 A", "Class-8 B", "Class-8 C", "Class-8 D",
-        "Class-9 A", "Class-9 B", "Class-9 C", "Class-9 D",
-        "Class-10 A", "Class-10 B", "Class-10 C", "Class-10 D",
+        "Class-6 A",
+        "Class-6 B",
+        "Class-6 C",
+        "Class-6 D",
+        "Class-7 A",
+        "Class-7 B",
+        "Class-7 C",
+        "Class-7 D",
+        "Class-8 A",
+        "Class-8 B",
+        "Class-8 C",
+        "Class-8 D",
+        "Class-9 A",
+        "Class-9 B",
+        "Class-9 C",
+        "Class-9 D",
+        "Class-10 A",
+        "Class-10 B",
+        "Class-10 C",
+        "Class-10 D",
     ]
 }
 #[tauri::command]
@@ -47,61 +85,65 @@ pub async fn check_and_initialize_default_classes_once(
     academic_year_id: i64,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
+
     // Check if this is the first run by looking for a specific marker
-    let is_first_run: bool = conn.query_row(
-        "SELECT NOT EXISTS(SELECT 1 FROM sqlite_master WHERE name = 'classes_initialized')",
-        [],
-        |row| row.get(0),
-    ).map_err(|e| e.to_string())?;
-    
+    let is_first_run: bool = conn
+        .query_row(
+            "SELECT NOT EXISTS(SELECT 1 FROM sqlite_master WHERE name = 'classes_initialized')",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
     if is_first_run {
         // Create a marker table to indicate initialization is done
         conn.execute(
             "CREATE TABLE classes_initialized (id INTEGER PRIMARY KEY)",
             [],
-        ).map_err(|e| e.to_string())?;
-        
+        )
+        .map_err(|e| e.to_string())?;
+
         // Initialize default classes
         for class_name in get_default_classes() {
             conn.execute(
                 "INSERT INTO classes (class_name, academic_years, status)
                  VALUES (?1, ?2, 'inactive')",
                 params![class_name, academic_year_id],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
         }
     }
-    
+
     Ok(())
 }
 
 #[tauri::command]
-pub async fn toggle_class_status(
-    state: State<'_, DbState>,
-    id: i64,
-) -> Result<(), String> {
+pub async fn toggle_class_status(state: State<'_, DbState>, id: i64) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
+
     // Get current status
-    let current_status: String = conn.query_row(
-        "SELECT status FROM classes WHERE id = ?1",
-        params![id],
-        |row| row.get(0),
-    ).map_err(|e| e.to_string())?;
-    
+    let current_status: String = conn
+        .query_row(
+            "SELECT status FROM classes WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
     // Toggle status
     let new_status = if current_status == "active" {
         "inactive"
     } else {
         "active"
     };
-    
+
     // Update status
     conn.execute(
         "UPDATE classes SET status = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
         params![new_status, id],
-    ).map_err(|e| e.to_string())?;
-    
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
@@ -111,7 +153,7 @@ pub async fn initialize_default_classes(
     academic_year_id: i64,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
+
     for class_name in get_default_classes() {
         // Check if class already exists
         let exists: bool = conn.query_row(
@@ -119,16 +161,17 @@ pub async fn initialize_default_classes(
             params![class_name, academic_year_id],
             |row| row.get(0),
         ).map_err(|e| e.to_string())?;
-        
+
         if !exists {
             conn.execute(
                 "INSERT INTO classes (class_name, academic_years, status)
                  VALUES (?1, ?2, 'inactive')",
                 params![class_name, academic_year_id],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
         }
     }
-    
+
     Ok(())
 }
 
@@ -181,7 +224,6 @@ pub async fn get_active_classes(state: State<'_, DbState>) -> Result<Vec<Class>,
     Ok(classes)
 }
 
-
 pub fn init_class_table(conn: &Connection) -> rusqlite::Result<()> {
     // conn.execute("DROP TABLE IF EXISTS classes", [])?;
     conn.execute(
@@ -196,13 +238,13 @@ pub fn init_class_table(conn: &Connection) -> rusqlite::Result<()> {
         )",
         [],
     )?;
-    
+
     // Create the initialization marker table if it doesn't exist
     conn.execute(
         "CREATE TABLE IF NOT EXISTS classes_initialized (id INTEGER PRIMARY KEY)",
         [],
     )?;
-    
+
     Ok(())
 }
 
@@ -214,15 +256,18 @@ pub async fn create_class(
     status: Option<String>,
 ) -> Result<i64, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
+
     let class_exists: bool = conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM classes WHERE LOWER(TRIM(class_name)) = LOWER(TRIM(?1)) AND academic_years = ?2)",
         params![&className, academicYears],
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
-    
+
     if class_exists {
-        return Err(format!("Class '{}' already exists in the selected academic year", className));
+        return Err(format!(
+            "Class '{}' already exists in the selected academic year",
+            className
+        ));
     }
 
     conn.execute(
@@ -235,40 +280,41 @@ pub async fn create_class(
         ],
     )
     .map_err(|e| e.to_string())?;
-    
+
     Ok(conn.last_insert_rowid())
 }
 
 #[tauri::command]
 pub async fn get_all_classes(state: State<'_, DbState>) -> Result<Vec<Class>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    
+
     // Check if any classes exist
-    let class_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM classes",
-        [],
-        |row| row.get(0),
-    ).map_err(|e| e.to_string())?;
-    
+    let class_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM classes", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+
     // If no classes exist, initialize default classes for the current academic year
     if class_count == 0 {
         // Get the current academic year (you might need to adjust this query)
-        let current_academic_year: i64 = conn.query_row(
-            "SELECT id FROM academic_years WHERE status = 'active' LIMIT 1",
-            [],
-            |row| row.get(0),
-        ).unwrap_or(1); // Fallback to ID 1 if no active year found
-        
+        let current_academic_year: i64 = conn
+            .query_row(
+                "SELECT id FROM academic_years WHERE status = 'active' LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(1); // Fallback to ID 1 if no active year found
+
         // Initialize default classes
         for class_name in get_default_classes() {
             conn.execute(
                 "INSERT INTO classes (class_name, academic_years, status)
                  VALUES (?1, ?2, 'inactive')",
                 params![class_name, current_academic_year],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
         }
     }
-    
+
     // Now proceed with the original query
     let mut stmt = conn
         .prepare(
@@ -324,15 +370,19 @@ pub async fn update_class(
     status: String,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    println!("Updating class: id={}, className={:?}, academicYears={:?}, status={:?}", 
-        id, className, academicYears, status);
-    
+    println!(
+        "Updating class: id={}, className={:?}, academicYears={:?}, status={:?}",
+        id, className, academicYears, status
+    );
+
     // Get current class data
-    let current_class: (String, i64, String) = conn.query_row(
-        "SELECT class_name, academic_years, status FROM classes WHERE id = ?1",
-        params![id],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-    ).map_err(|e| e.to_string())?;
+    let current_class: (String, i64, String) = conn
+        .query_row(
+            "SELECT class_name, academic_years, status FROM classes WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Use provided values directly (no unwrap needed since they're not Option types)
     let new_class_name = className;
@@ -345,22 +395,27 @@ pub async fn update_class(
         params![&new_class_name, new_academic_years, id],
         |row| row.get(0),
     ).map_err(|e| e.to_string())?;
-    
+
     if class_exists {
-        return Err(format!("Class '{}' already exists in the selected academic year", new_class_name));
+        return Err(format!(
+            "Class '{}' already exists in the selected academic year",
+            new_class_name
+        ));
     }
-    
+
     // Verify academic year exists
-    let year_exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM academic_years WHERE id = ?1)",
-        params![new_academic_years],
-        |row| row.get(0),
-    ).map_err(|e| e.to_string())?;
-    
+    let year_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM academic_years WHERE id = ?1)",
+            params![new_academic_years],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
     if !year_exists {
         return Err("Academic year does not exist".to_string());
     }
-    
+
     // Perform update
     conn.execute(
         "UPDATE classes SET 
@@ -369,12 +424,7 @@ pub async fn update_class(
             status = ?3,
             updated_at = CURRENT_TIMESTAMP
          WHERE id = ?4",
-        params![
-            new_class_name.trim(),
-            new_academic_years,
-            new_status,
-            id,
-        ],
+        params![new_class_name.trim(), new_academic_years, new_status, id,],
     )
     .map_err(|e| e.to_string())?;
 
@@ -415,4 +465,3 @@ pub async fn get_class(state: State<'_, DbState>, id: i64) -> Result<Class, Stri
 
     Ok(class)
 }
-

@@ -3,7 +3,7 @@ use rusqlite::Connection;
 pub fn run_migrations(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     // Enable foreign key support
     conn.pragma_update(None, "foreign_keys", &"ON")?;
-    
+
     // Run all table initialization functions
     crate::enquiry::init_enquiry_tables(conn)?;
     crate::school::init_school_table(conn)?;

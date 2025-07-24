@@ -4,7 +4,6 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Enquiry {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -42,9 +41,6 @@ pub struct FollowUp {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub follow_up_date: Option<String>,
 }
-
-
-
 
 pub fn init_enquiry_tables(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute(
