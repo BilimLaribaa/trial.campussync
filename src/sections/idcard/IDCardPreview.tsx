@@ -658,45 +658,6 @@ export function IDCardPreview({
                 </Button>
               </Stack>
             ))}
-
-            {/* <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
-              <button
-                style={{
-                  padding: '10px 24px',
-                  background: '#1976d2',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 6,
-                  fontSize: 16,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(25, 118, 210, 0.08)',
-                  transition: 'background 0.2s',
-                }}
-                onClick={handleGenerateAll}
-                disabled={!designUrl || !designFile?.type.startsWith('image/') || Student.length === 0}
-              >
-                Download as ZIP
-              </button>
-              <button
-                style={{
-                  padding: '10px 24px',
-                  background: '#388e3c',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 6,
-                  fontSize: 16,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(56, 142, 60, 0.08)',
-                  transition: 'background 0.2s',
-                }}
-                onClick={handleGeneratePDF}
-                disabled={!designUrl || !designFile?.type.startsWith('image/') || Student.length === 0}
-              >
-                Download as PDF
-              </button>
-            </Box> */}
           </>
         )}
       </Box>

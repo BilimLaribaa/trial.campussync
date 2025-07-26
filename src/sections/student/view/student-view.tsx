@@ -9,7 +9,7 @@ import {
   Box, Card, Stack, Button, Typography, Alert, Dialog,
   DialogTitle, DialogContent, DialogActions, Paper,
   Table, TableBody, TableCell, TableContainer, TableRow, TableHead,
-  FormControl, InputLabel, Select,TextField, MenuItem, CircularProgress, Snackbar
+  FormControl, InputLabel, Select, TextField, MenuItem, CircularProgress, Snackbar
 } from '@mui/material';
 
 import { handleDownloadTemplate, handleFileChange } from 'src/utils/excel - template';
@@ -116,16 +116,25 @@ export function StudentView() {
   const [fileName, setFileName] = useState('');
   const [tableHeaders, setTableHeaders] = useState<string[]>([]);
 
+  const updateStudentInList = (updatedStudent: Student) => {
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id === updatedStudent.id ? { ...s, ...updatedStudent } : s
+      )
+    );
+  };
+
+
   const handleClassChange = (classId: string) => {
     setSelectedClass(classId);
     setSelectedStudentId(null); // Reset selected student when class changes
   };
 
- 
+
 
   // Selected student data
-  const selectedStudent = useMemo(() => 
-    students.find(s => s.id === selectedStudentId), 
+  const selectedStudent = useMemo(() =>
+    students.find(s => s.id === selectedStudentId),
     [students, selectedStudentId]
   );
 
@@ -145,34 +154,34 @@ export function StudentView() {
       await invoke('delete_student', { id: selectedStudentId });
       const updatedStudents = await invoke<Student[]>('get_students', { id: null });
       setStudents(updatedStudents);
-      
+
       setSnackbar({
         open: true,
         message: 'Student deleted successfully',
         severity: 'success'
       });
-   } catch (err) {  // Changed from 'error' to 'err'
-  console.error('Delete failed:', err);
-  setSnackbar({
-    open: true,
-    message: typeof err === 'string' ? err : 'Failed to delete student',
-    severity: 'error'
-  });
-}
+    } catch (err) {  // Changed from 'error' to 'err'
+      console.error('Delete failed:', err);
+      setSnackbar({
+        open: true,
+        message: typeof err === 'string' ? err : 'Failed to delete student',
+        severity: 'error'
+      });
+    }
   };
 
   const studentListProps = {
-  students, // Pass all students, not filteredStudents
-  classMap,
-  classes,
-  selectedStudentId,
-  loading,
-  error,
-  documentUrls,
-  onStudentSelect: setSelectedStudentId,
-  selectedClass,
-  onClassChange: handleClassChange
-};
+    students, // Pass all students, not filteredStudents
+    classMap,
+    classes,
+    selectedStudentId,
+    loading,
+    error,
+    documentUrls,
+    onStudentSelect: setSelectedStudentId,
+    selectedClass,
+    onClassChange: handleClassChange
+  };
 
   // Props for StudentPreview
   const studentPreviewProps = {
@@ -180,7 +189,9 @@ export function StudentView() {
     documentUrls: selectedStudentId ? documentUrls[selectedStudentId] : {},
     classMap,
     onEdit: () => selectedStudentId && navigate(`/dashboard/student/add/${selectedStudentId}`),
-    onDelete: handleDelete
+    onDelete: handleDelete,
+    onStudentUpdate: updateStudentInList, // ✔️ Add it here
+
   };
 
   // Fetch data on mount
@@ -379,16 +390,16 @@ export function StudentView() {
             <Button variant="contained" onClick={() => navigate('/dashboard/student/add')}>
               Add Student
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               onClick={() => selectedStudentId && navigate(`/dashboard/student/add/${selectedStudentId}`)}
               disabled={!selectedStudentId}
             >
               Edit
             </Button>
-            <Button 
-              variant="outlined" 
-              color="error" 
+            <Button
+              variant="outlined"
+              color="error"
               onClick={handleDelete}
               disabled={!selectedStudentId || loading}
               startIcon={loading ? <CircularProgress size={20} /> : null}
@@ -398,29 +409,36 @@ export function StudentView() {
           </Stack>
         </Stack>
 
- <TextField
-  select
-  fullWidth
-  size="small"
-  label="Select Class"
-  value={selectedClass}
-  onChange={(e) => handleClassChange(e.target.value)}
-  sx={{ maxWidth: 300 }} // ✅ valid use of `sx`
->
-  <MenuItem value="">All Classes</MenuItem>
-  {classes.map((cls) => (
-    <MenuItem key={cls.id} value={cls.id}>
-      {cls.class_name}
-    </MenuItem>
-  ))}
-</TextField>
+        <TextField
+          select
+          fullWidth
+          size="small"
+          label="Select Class"
+          value={selectedClass}
+          onChange={(e) => handleClassChange(e.target.value)}
+          sx={{ maxWidth: 300 }} // ✅ valid use of `sx`
+        >
+          <MenuItem value="">All Classes</MenuItem>
+          {classes.map((cls) => (
+            <MenuItem key={cls.id} value={cls.id}>
+              {cls.class_name}
+            </MenuItem>
+          ))}
+        </TextField>
 
         <Stack direction="row" spacing={2} alignItems="flex-start">
-          <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: '80vh' }}>
-               <StudentList {...studentListProps} />
+          <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: '120vh' }}>
+            <StudentList {...studentListProps} />
           </Card>
 
-          <Card sx={{ width: '70%', overflow: 'hidden', borderRadius: 3, height: '80vh' }}>
+          <Card
+            sx={{
+              width: '70%',
+              borderRadius: 3,
+              maxHeight: '120vh', 
+              height: 'auto' 
+            }}
+          >
             <StudentPreview {...studentPreviewProps} />
           </Card>
         </Stack>

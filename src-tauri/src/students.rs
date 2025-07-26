@@ -8,6 +8,8 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
+use std::fs::{write, remove_file};
+
 // use uuid::Uuid;
 // use chrono::Local;
 
@@ -806,4 +808,47 @@ pub fn init_student_table(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     Ok(())
+}
+#[tauri::command]
+pub async fn update_student_passport_photo(
+    state: State<'_, DbState>,
+    student_id: i64,
+    image_path: String, // raw path
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    // Get old raw path from DB
+    let old_path: Option<String> = conn.query_row(
+        "SELECT passport_photo FROM students WHERE id = ?1",
+        [student_id],
+        |row| row.get(0),
+    ).ok();
+
+    // Delete old image file if it exists
+    if let Some(path) = old_path {
+        let path = std::path::Path::new(&path);
+        if path.exists() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    // Save new raw path to DB
+    conn.execute(
+        "UPDATE students SET passport_photo = ?1 WHERE id = ?2",
+        params![image_path, student_id],
+    ).map_err(|e| format!("Failed to update DB: {}", e))?;
+
+    Ok(())
+}
+// writing and deleting temp file for cropped iamge
+#[tauri::command]
+pub fn write_binary_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+    let path = PathBuf::from(path);
+    write(&path, contents).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn remove_file_cmd(path: String) -> Result<(), String> {
+    let path = PathBuf::from(path);
+    remove_file(&path).map_err(|e| e.to_string())
 }

@@ -71,16 +71,14 @@ async fn save_passport_photo(app_handle: AppHandle, passportFilePath: String) ->
     fs::create_dir_all(&imagesfolder).map_err(|e| e.to_string())?;
     fs::copy(&original_file, &newfile).map_err(|e| e.to_string())?;
 
-    newfile
-        .to_str()
-        .map(|s| s.to_string())
-        .ok_or("Failed to convert destination path to string".into())
+    Ok((newfile.to_str().ok_or("Failed to convert destination path to string")?).to_string())
 }
 // functions and hanlde save command functionality for passport photo in add student view end
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -158,6 +156,9 @@ pub fn run() {
             students::get_students,
             students::bulk_create_students,
             students::get_student_headers,
+            students::update_student_passport_photo,
+            students::write_binary_file,
+            students::remove_file_cmd,
         
             // students::copy_file,
             // Image commands
@@ -174,19 +175,4 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}!", name)
-}
 
-#[tauri::command]
-fn save_file_rust(_content: String) -> Result<(), String> {
-    // For now, return Ok since the implementation is commented out
-    Ok(())
-}
-
-pub fn init<R: Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    tauri::plugin::Builder::new("example")
-        .invoke_handler(tauri::generate_handler![greet, save_file_rust])
-        .build()
-}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 
 import {
   Box, Typography, Avatar, List, ListItem, ListItemButton,
@@ -43,8 +44,8 @@ export function StudentList({
   onStudentSelect,
   selectedClass,
 }: StudentListProps) {
-    // Filter students first
-  
+  // Filter students first
+
   useEffect(() => {
     // Only auto-select first student if there are students in the filtered list
     if (students.length > 0 && !selectedStudentId) {
@@ -52,7 +53,7 @@ export function StudentList({
     }
   }, [students, selectedStudentId, onStudentSelect]);
 
-   if (loading) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="100%">
         <CircularProgress />
@@ -68,11 +69,11 @@ export function StudentList({
     );
   }
 
-   const filteredStudents = selectedClass
+  const filteredStudents = selectedClass
     ? students.filter(student => student.class_id === selectedClass)
     : students;
 
-   return (
+  return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {filteredStudents.length === 0 ? (
         <Box display="flex" justifyContent="center" alignItems="center" height="100%">
@@ -89,7 +90,13 @@ export function StudentList({
                 onClick={() => onStudentSelect(student.id)}
               >
                 <ListItemAvatar>
-                  <Avatar src={documentUrls[student.id]?.passport_photo || "/assets/avatars/avatar_1.jpg"} />
+                  <Avatar
+                    src={
+                      student.passport_photo
+                        ? convertFileSrc(student.passport_photo)
+                        : "/assets/avatars/avatar_1.jpg"
+                    }
+                  />
                 </ListItemAvatar>
                 <ListItemText
                   primary={<Typography fontWeight={600}>{student.full_name}</Typography>}
