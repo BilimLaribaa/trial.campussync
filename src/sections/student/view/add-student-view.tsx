@@ -172,15 +172,15 @@ const INITIAL_VALUES: Student = {
   other_documents: ''
 };
 
-const REQUIRED_FIELDS: Record<number, (keyof Student)[]> = {
-  0: ['gr_number', 'full_name', 'gender', 'class_id', 'mother_name', 'father_name'],
-  1: ['email', 'mobile_number'], // Added emergency_contact as required
-  2: [],
-  3: []
-};
+  const REQUIRED_FIELDS: Record<number, (keyof Student)[]> = {
+    0: ['gr_number', 'full_name', 'gender', 'class_id', 'mother_name', 'father_name'],
+    1: [], 
+    2: [],
+    3: []
+  };
 
-const STATUS_OPTIONS = ['active', 'inactive', 'alumni'];
-const GENDER_OPTIONS = ['male', 'female', 'other'];
+const STATUS_OPTIONS = ['Active', 'Inactive', 'Almini'];
+const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unknown'];
 
 type AddStudentViewProps = {
@@ -216,11 +216,15 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const [activeStep, setActiveStep] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [touched, setTouched] = useState<Record<string, boolean>>({})
-
+//  documents states in form 4 
 const [documentFilePath, setDocumentFilePath] = useState<string | null>(null);
+const [documentImageUrl, setDocumentImageUrl] = useState<string | null>(null);
+// passport state in form 4
 const [passportFilePath, setPassportFilePath] = useState<string | null>(null);
-  const [documentImageUrl, setDocumentImageUrl] = useState<string | null>(null);
 const [passportImageUrl, setPassportImageUrl] = useState<string | null>(null);
+const [isPhotoUploaded, setIsPhotoUploaded] = useState(false);
+const [previousUploadedPhoto, setPreviousUploadedPhoto] = useState<string | null>(null);
+
 
 
 
@@ -246,13 +250,16 @@ const handlePassportOpen = async () => {
       directory: false,
       filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] }],
     });
+
     if (typeof file === 'string') {
       setPassportFilePath(file);
+      setIsPhotoUploaded(false); // 🔄 Reset upload state
     }
   } catch (err) {
     console.error("[handlePassportOpen] Error opening passport file:", err);
   }
 };
+
 useEffect(() => {
   if (documentFilePath) {
     setDocumentImageUrl(convertFileSrc(documentFilePath));
@@ -266,27 +273,43 @@ useEffect(() => {
 }, [passportFilePath]);
 
 
-
 const handleSave = async () => {
   if (!passportFilePath) {
     console.warn("[handleSave] No filePath to save.");
     return;
   }
 
-  console.log("[handleSave] Saving file at path:", passportFilePath);
-
   try {
-    await invoke("save_passport_photo", { passportFilePath: passportFilePath });
-    console.log("[handleSave] Image saved successfully!");
+    if (previousUploadedPhoto) {
+      console.log("[handleSave] Deleting previous photo:", previousUploadedPhoto);
+      await invoke("delete_passport_photo", { fileName: previousUploadedPhoto });
+    }
+
+    const savedFileName: string = await invoke("save_passport_photo", { passportFilePath });
+
+    setPreviousUploadedPhoto(savedFileName);
+    setIsPhotoUploaded(true);
     
-    // Clear the selection and preview after successful upload
+    // Also update form data immediately
+    setFormData(prev => ({
+      ...prev,
+      passport_photo: savedFileName
+    }));
+
+    setSnackbar({ 
+      open: true, 
+      message: 'Passport photo uploaded successfully!', 
+      severity: 'success' 
+    });
+
     setPassportFilePath(null);
-    setPassportImageUrl(null);
-    
-    setSnackbar({ open: true, message: 'Passport photo uploaded successfully!', severity: 'success' });
   } catch (error) {
     console.error("[handleSave] Error saving image:", error);
-    setSnackbar({ open: true, message: 'Failed to save passport photo.', severity: 'error' });
+    setSnackbar({ 
+      open: true, 
+      message: 'Failed to save passport photo.', 
+      severity: 'error' 
+    });
   }
 };
 
@@ -332,9 +355,13 @@ const handleSave = async () => {
   let errorMessage = '';
   const stringValue = value?.toString() || '';
 
-  if (REQUIRED_FIELDS[activeStep].includes(field) && !stringValue) {
+  // Only check for required fields on step 0
+  if (REQUIRED_FIELDS[0].includes(field) && !stringValue) {
     errorMessage = `${field} is required`;
-  } else if (stringValue) {
+  }
+
+  // Only perform pattern validation if the field is non-empty
+  if (stringValue) {
     switch (field) {
       case 'gr_number':
         if (!/^\d{4}$/.test(stringValue)) {
@@ -362,6 +389,7 @@ const handleSave = async () => {
         break;
     }
   }
+
   return errorMessage;
 };
 
@@ -476,8 +504,8 @@ const handleSave = async () => {
     return;
   }
 
-  // Check if passport photo is selected (only for step 3/documents)
-  if (activeStep === 3 && !passportImageUrl) {
+  // Require uploaded photo
+  if (activeStep === 3 && !isPhotoUploaded) {
     setSnackbar({ open: true, message: 'Passport photo is required before submission', severity: 'error' });
     return;
   }
@@ -485,18 +513,52 @@ const handleSave = async () => {
   setIsSubmitting(true);
 
   try {
+    // Prepare the document data including the passport photo path
+    const docsData = {
+      birth_certificate: formData.birth_certificate || null,
+      transfer_certificate: formData.transfer_certificate || null,
+      previous_academic_records: formData.previous_academic_records || null,
+      address_proof: formData.address_proof || null,
+      id_proof: formData.id_proof || null,
+      passport_photo: previousUploadedPhoto || null, // This is the saved path from handleSave
+      medical_certificate: formData.medical_certificate || null,
+      vaccination_certificate: formData.vaccination_certificate || null,
+      other_documents: formData.other_documents || null
+    };
+
+    // Update the student record with all document paths
     await invoke('create_student4', {
-      docs: {}, // Empty docs object
+      docs: docsData,
       id: finalId,
     });
 
-    setSnackbar({ open: true, message: 'Student saved successfully!', severity: 'success' });
+    // Also update the form data with the passport photo path
+    setFormData(prev => ({
+      ...prev,
+      passport_photo: previousUploadedPhoto || ''
+    }));
+
+    setSnackbar({ 
+      open: true, 
+      message: 'Student saved successfully!', 
+      severity: 'success' 
+    });
+
+    // Cleanup
+    setPreviousUploadedPhoto(null);
+    setIsPhotoUploaded(false);
+    setPassportFilePath(null);
+
     setTimeout(() => {
       navigate('/dashboard/students', { replace: true });
-    }, 1500); // Give time for user to see success message
+    }, 1500);
   } catch (error) {
     console.error('Error saving student:', error);
-    setSnackbar({ open: true, message: 'Failed to save student.', severity: 'error' });
+    setSnackbar({ 
+      open: true, 
+      message: 'Failed to save student documents.', 
+      severity: 'error' 
+    });
   } finally {
     setIsSubmitting(false);
   }
@@ -886,26 +948,31 @@ const handleSave = async () => {
 )}
 
           {/* Upload Passport Photo Button - Disabled */}
-          <Button
-            variant="contained"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={handleSave}
-            disabled={!passportFilePath || isSubmitting} // Disable if no file selected or during submissiion
-          >
-             {isSubmitting ? 'Uploading...' : 'Upload Passport Photo'}
-          </Button>
+         <Button
+  variant="contained"
+  fullWidth
+  sx={{ mt: 2 }}
+  onClick={handleSave}
+  disabled={!passportFilePath || isSubmitting}
+>
+  {isSubmitting ? 'Uploading...' : 'Upload Passport Photo'}
+</Button>
+
 
           {/* Passport Photo Status - Not Uploaded */}
           <Box>
   <Typography variant="h6" sx={{ mb: 2 }}>Passport Photo Status</Typography>
-  {passportImageUrl ? (
+  {isPhotoUploaded ? (
     <Typography variant="body2" color="success.main">
-      Passport photo selected and ready to upload
+      Passport photo uploaded successfully.
+    </Typography>
+  ) : passportImageUrl ? (
+    <Typography variant="body2" color="warning.main">
+      Passport photo selected but not uploaded.
     </Typography>
   ) : (
     <Typography variant="body2" color="error">
-      Passport photo is required
+      Passport photo is required.
     </Typography>
   )}
 </Box>

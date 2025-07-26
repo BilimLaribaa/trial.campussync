@@ -73,6 +73,23 @@ async fn save_passport_photo(app_handle: AppHandle, passportFilePath: String) ->
 
     Ok((newfile.to_str().ok_or("Failed to convert destination path to string")?).to_string())
 }
+
+#[tauri::command]
+fn delete_passport_photo(file_name: String) -> Result<(), String> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    let mut file_path = dirs::data_dir().unwrap_or_default();
+    file_path.push("your-app-folder"); // Change this to match where you save files
+    file_path.push(file_name);
+
+    if file_path.exists() {
+        fs::remove_file(file_path).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
 // functions and hanlde save command functionality for passport photo in add student view end
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -113,6 +130,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Enquiry commands
             save_passport_photo,
+            delete_passport_photo,
             read_file_content,
             enquiry::create_enquiry,
             enquiry::get_enquiry,

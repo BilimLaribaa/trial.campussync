@@ -9,6 +9,8 @@ import { Box, Typography, Avatar, ToggleButton, ToggleButtonGroup, Table, TableB
 
 import getCroppedImg from 'src/utils/cropImage';
 
+import { Iconify } from 'src/components/iconify';
+
 type Student = {
   id: number;
   gr_number: string;
@@ -276,28 +278,71 @@ const passportPhoto = currentStudent?.passport_photo
 
       {/* Student photo and basic info */}
       <Box sx={{ px: 4, position: 'relative', minHeight: 65 }}>
-        <Avatar
-          src={passportPhoto}
-          sx={{
-            width: 120,
-            height: 120,
-            border: '4px solid white',
-            borderRadius: '50%',
-            boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)',
-            backgroundColor: 'white',
-            position: 'absolute',
-            top: -65,
-            left: 24
-          }}
-          onClick={handlePassportOpen}
-        />
-        <Box sx={{ pl: 16, pt: 2 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
-            {currentStudent.full_name}, Class: {currentStudent.class_id}, Section: {currentStudent.section}
-          </Typography>
-          <Typography variant="body2">GR No: {currentStudent.gr_number} | Roll No: {currentStudent.roll_number}</Typography>
-        </Box>
-      </Box>
+  {/* Hover wrapper */}
+  <Box
+    sx={{
+      position: 'absolute',
+      top: -65,
+      left: 24,
+      width: 120,
+      height: 120,
+      borderRadius: '50%',
+      overflow: 'hidden',
+      '&:hover .avatar-overlay': {
+        opacity: 1,
+        pointerEvents: 'auto',
+      },
+    }}
+  >
+    {/* Avatar */}
+    <Avatar
+      src={passportPhoto}
+      sx={{
+        width: 120,
+        height: 120,
+        border: '4px solid white',
+        borderRadius: '50%',
+        boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)',
+        backgroundColor: 'white',
+      }}
+      onClick={handlePassportOpen}
+    />
+
+    {/* Overlay with pen icon */}
+    <Box
+      className="avatar-overlay"
+      sx={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '50%',
+        opacity: 0,
+        transition: 'opacity 0.3s',
+        pointerEvents: 'none',
+        cursor: 'pointer',
+      }}
+      onClick={handlePassportOpen}
+    >
+      <Iconify icon="solar:pen-bold" width={24} color="white" />
+    </Box>
+  </Box>
+
+  {/* Student Info */}
+  <Box sx={{ pl: 16, pt: 2 }}>
+    <Typography variant="subtitle1" fontWeight={600}>
+      {currentStudent.full_name}, Class: {currentStudent.class_id}, Section: {currentStudent.section}
+    </Typography>
+    <Typography variant="body2">
+      GR No: {currentStudent.gr_number} | Roll No: {currentStudent.roll_number}
+    </Typography>
+  </Box>
+</Box>
 
       {/* Student profile preview */}
       <Box
