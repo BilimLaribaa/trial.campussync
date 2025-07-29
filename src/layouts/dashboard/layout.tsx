@@ -12,7 +12,6 @@ import { useTheme } from '@mui/material/styles';
 
 import { _langs, _notifications } from 'src/_mock';
 import { StudentSearchProvider } from 'src/contexts/StudentSearchContext';
-import { SchoolContext, SchoolProvider } from 'src/contexts/SchoolContext';
 
 import { Version } from 'src/components/version';
 import { Settings } from 'src/components/settings';
@@ -69,7 +68,6 @@ function DashboardLayoutContent({
 }: DashboardLayoutProps) {
   const theme = useTheme();
   const { value: open, onFalse: onClose, onTrue: onOpen } = useBoolean();
-  const { school, refreshSchool } = useContext(SchoolContext);
   const [openProfileDialog, setOpenProfileDialog] = useState(false);
 
   const renderHeader = () => {
@@ -109,8 +107,8 @@ function DashboardLayoutContent({
           {/** @slot Account drawer */}
           <AccountPopover
             data={_account}
-            school={school}
-            refreshSchool={refreshSchool}
+            // school={school}
+            // refreshSchool={refreshSchool}
             onProfileClick={() => setOpenProfileDialog(true)}
           />
         </Box>
@@ -175,7 +173,7 @@ function DashboardLayoutContent({
           open={openProfileDialog}
           onClose={() => setOpenProfileDialog(false)}
           onSaved={() => {
-            refreshSchool();
+            // refreshSchool();
           }}
         />
       </LayoutSection>
@@ -186,10 +184,8 @@ function DashboardLayoutContent({
 
 export function DashboardLayout(props: DashboardLayoutProps) {
   return (
-    <SchoolProvider>
       <StudentSearchProvider>
         <DashboardLayoutContent {...props} />
       </StudentSearchProvider>
-    </SchoolProvider>
   );
 }

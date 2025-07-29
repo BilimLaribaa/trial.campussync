@@ -191,7 +191,7 @@ export function SchoolBanner({
 
   useEffect(() => {
     if (school?.school_image) {
-      const imagePath = `${Config.backend}/public/schools/${school.school_image}`;
+      const imagePath = `${Config.backend}/public${school.school_image}`;
       setImageUrl(imagePath);
     } else {
       setImageUrl('/assets/LOGO_SCHOOL.jpg');
@@ -236,7 +236,8 @@ export function SchoolBanner({
           sx={{
             width: 128,
             height: 128,
-            objectFit: 'contain',
+            objectFit: 'cover',
+            borderRadius: '50%', // ✅ make it round
           }}
         />
         <Box sx={{ flexGrow: 1, minWidth: 112 }}>
@@ -248,19 +249,19 @@ export function SchoolBanner({
       </Box>
 
       <SvgColor
-  src="/assets/background/shape-circle.svg"
-  sx={{
-    top: 0,
-    left: -20,
-    width: 240,
-    height: 240,
-    zIndex: -1,
-    opacity: 0.24,
-    position: 'absolute',
-    color: `${color}.main`,
-    borderRadius: '50%', // ensure round shape applies
-  }}
-/>
+        src="/assets/background/shape-circle.svg"
+        sx={{
+          top: 0,
+          left: -20,
+          width: 240,
+          height: 240,
+          zIndex: -1,
+          opacity: 0.24,
+          position: 'absolute',
+          color: `${color}.main`,
+          borderRadius: '50%',
+        }}
+      />
     </Card>
   );
 }

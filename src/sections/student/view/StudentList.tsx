@@ -44,10 +44,9 @@ export function StudentList({
   onStudentSelect,
   selectedClass,
 }: StudentListProps) {
-  // Filter students first
 
-  useEffect(() => {
-    // Only auto-select first student if there are students in the filtered list
+ useEffect(() => {
+    // Only auto-select first student if there are students in the list
     if (students.length > 0 && !selectedStudentId) {
       onStudentSelect(students[0].id);
     }
@@ -69,13 +68,10 @@ export function StudentList({
     );
   }
 
-  const filteredStudents = selectedClass
-    ? students.filter(student => student.class_id === selectedClass)
-    : students;
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {filteredStudents.length === 0 ? (
+      {students.length === 0 ? (
         <Box display="flex" justifyContent="center" alignItems="center" height="100%">
           <Typography variant="body1" color="text.secondary">
             No students {selectedClass ? 'found in selected class' : 'available'}
@@ -83,7 +79,7 @@ export function StudentList({
         </Box>
       ) : (
         <List sx={{ overflowY: 'auto', flex: 1 }}>
-          {filteredStudents.map((student) => (
+          {students.map((student) => (
             <ListItem disablePadding key={student.id}>
               <ListItemButton
                 selected={selectedStudentId === student.id}
@@ -103,7 +99,7 @@ export function StudentList({
                   secondary={
                     <>
                       <Typography component="span" display="block">
-                        Class: {classMap[student.class_id] || student.class_id}
+                      {classMap[student.class_id] || student.class_id}
                       </Typography>
                       {student.roll_number && (
                         <Typography component="span" display="block">

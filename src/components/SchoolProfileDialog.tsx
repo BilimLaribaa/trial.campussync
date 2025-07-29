@@ -1,6 +1,6 @@
-import { invoke } from '@tauri-apps/api/core';
 import { appDataDir } from '@tauri-apps/api/path';
 import React, { useEffect, useState } from 'react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -22,6 +22,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
+
+import Config from '../../config';
 
 interface School {
     id?: number;
@@ -98,42 +100,56 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null); 
 
-    useEffect(() => {
-        if (open) {
-            setLoading(true);
-            invoke<School>('get_school_details')
-                .then(async (data) => {
-                    if (data) {
-                        setForm({
-                            ...data,
-                            // ensure defaults for optional fields
-                            alternate_contact_number: data.alternate_contact_number || '',
-                            website: data.website || '',
-                            school_image: data.school_image || null,
-                            is_active: data.is_active !== undefined ? data.is_active : true,
-                        });
-                        // Load image preview if available
-                        if (data.school_image) {
-                            try {
-                                const filename = data.school_image.split('/').pop();
-                                if (filename) {
-                                    const appData = await appDataDir();
-                                    const imagePath = await invoke<string>('get_image_path', { filename });
-                                    setPhotoPreview(`asset://${imagePath}`);
-                                }
-                            } catch (err) {
-                                console.error('Failed to load school image:', err);
-                            }
-                        } else {
-                            setPhotoPreview(null);
-                        }
-                    }
-                })
-                .catch(() => setError('Failed to load school details.'))
-                .finally(() => setLoading(false));
-        }
-    }, [open]);
+  useEffect(() => {
+  const fetchSchoolData = async () => {
+    if (!open) return;
+
+    setLoading(true);
+
+    const schoolId = localStorage.getItem('school_id');
+    if (!schoolId) {
+      setError('No school ID found in localStorage.');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${Config.backend}/schools/${schoolId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      setForm({
+        ...data,
+        alternate_contact_number: data.alternate_contact_number || '',
+        website: data.website || '',
+        school_image: data.school_image || null,
+        is_active: data.is_active !== undefined ? data.is_active : true,
+      });
+
+      // Handle image preview
+      if (data.school_image) {
+        setPhotoPreview(`${Config.backend}/uploads/${data.school_image}`);
+      } else {
+        setPhotoPreview(null);
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchSchoolData();
+}, [open]);
+
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -148,87 +164,103 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
     };
 
     const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            try {
-                const filename = `${Date.now()}-${file.name}`;
-                const arrayBuffer = await file.arrayBuffer();
-                const bytes = Array.from(new Uint8Array(arrayBuffer));
+  const file = event.target.files?.[0];
+  if (!file) return;
 
-                await invoke('save_image', { filename, data: bytes });
+  try {
+    const filename = file.name.replace(/\s+/g, '_');
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(arrayBuffer));
 
-                setForm(prev => ({
-                    ...prev,
-                    school_image: filename
-                }));
+    const savedFileName = await invoke<string>('save_image', {
+      filename,
+      data: bytes,
+    });
 
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setPhotoPreview(reader.result as string);
-                };
-                reader.readAsDataURL(file);
-            } catch (err) {
-                console.error('Failed to save image:', err);
-                setError('Failed to upload image. Please try again.');
-            }
-        }
-    };
+    const savedPath = await invoke<string>('get_image_path', {
+      filename: savedFileName,
+    });
 
-    const handleSave = async () => {
-        // Basic validation for required fields
-        if (!form.school_name.trim()) {
-            setError('School name is required');
-            return;
-        }
-        if (!form.school_board.trim()) {
-            setError('School board is required');
-            return;
-        }
-        if (!form.school_medium.trim()) {
-            setError('School medium is required');
-            return;
-        }
-        if (!form.principal_name.trim()) {
-            setError('Principal name is required');
-            return;
-        }
-        if (!form.contact_number.trim()) {
-            setError('Contact number is required');
-            return;
-        }
-        if (!form.school_email.trim()) {
-            setError('School email is required');
-            return;
-        }
-        if (!form.address.trim()) {
-            setError('Address is required');
-            return;
-        }
-        if (!form.city.trim()) {
-            setError('City is required');
-            return;
-        }
-        if (!form.state.trim()) {
-            setError('State is required');
-            return;
-        }
-        if (!form.pincode.trim()) {
-            setError('Pincode is required');
-            return;
-        }
+    const savedBlob = new Blob([arrayBuffer], { type: file.type });
+    const localFile = new File([savedBlob], savedFileName, { type: file.type });
 
-        setLoading(true);
-        setError(null);
-        try {
-            await invoke('upsert_school_details', { schoolDetails: form });
-            onSaved(form);
-            onClose();
-        } catch (e) {
-            setError('Failed to save school details.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    setSelectedImageFile(localFile); // ✅ This will be used in the API call
+
+    setForm(prev => ({
+      ...prev,
+      school_image: savedFileName, // Optional: still storing filename in form
+    }));
+
+    setPhotoPreview(convertFileSrc(savedPath)); // For preview
+  } catch (err) {
+    console.error('Failed to save image:', err);
+    setError('Failed to upload image. Please try again.');
+  }
+};
+
+
+const handleSave = async () => {
+  if (!form.school_name.trim()) {
+    setError('School name is required');
+    return;
+  }
+
+  const schoolId = localStorage.getItem('school_id');
+  if (!schoolId) {
+    setError('No school ID found in localStorage.');
+    return;
+  }
+
+  const apiUrl = `${Config.backend}/schools/${schoolId}`;
+  const formData = new FormData();
+
+  formData.append('school_name', form.school_name);
+  formData.append('school_board', form.school_board);
+  formData.append('school_medium', form.school_medium);
+  formData.append('principal_name', form.principal_name);
+  formData.append('contact_number', form.contact_number);
+  formData.append('alternate_contact_number', form.alternate_contact_number || '');
+  formData.append('school_email', form.school_email);
+  formData.append('address', form.address);
+  formData.append('city', form.city);
+  formData.append('state', form.state);
+  formData.append('pincode', form.pincode);
+  formData.append('website', form.website || '');
+
+  // ✅ Send actual image file
+  if (selectedImageFile) {
+    formData.append('school_image', selectedImageFile);
+  }
+
+  setLoading(true);
+  setError(null);
+
+  console.log(form);
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'PUT',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+
+    const updated = await response.json();
+    onSaved(updated);
+    onClose();
+  } catch (err: any) {
+    console.error('Save failed:', err);
+    setError('Failed to save school profile to API.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
 
     return (
         <Dialog

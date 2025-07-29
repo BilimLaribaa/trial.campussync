@@ -180,6 +180,7 @@ pub fn run() {
         
             // students::copy_file,
             // Image commands
+            image::save_image,
             image::get_image_path,
             image::delete_image,
             // academic_year commands

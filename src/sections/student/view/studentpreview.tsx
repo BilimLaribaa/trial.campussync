@@ -2,10 +2,10 @@ import { v4 as uuidv4 } from 'uuid';
 import Cropper from 'react-easy-crop';
 import { open } from "@tauri-apps/plugin-dialog";
 import { appDataDir } from '@tauri-apps/api/path';
-import {useEffect, useState, useRef,} from 'react';
-import { invoke , convertFileSrc} from '@tauri-apps/api/core';
+import { useEffect, useState, useRef, } from 'react';
+import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 
-import { Box, Typography, Avatar, ToggleButton, ToggleButtonGroup, Table, TableBody, TableCell, TableContainer, TableRow, TableHead,Dialog,DialogTitle,DialogActions,DialogContent,Button,Snackbar,Alert, Slider } from '@mui/material';
+import { Box, Typography, Avatar, ToggleButton, ToggleButtonGroup, Table, TableBody, TableCell, TableContainer, TableRow, TableHead, Dialog, DialogTitle, DialogActions, DialogContent, Button, Snackbar, Alert, Slider } from '@mui/material';
 
 import getCroppedImg from 'src/utils/cropImage';
 
@@ -58,12 +58,12 @@ type Student = {
 };
 
 type StudentPreviewProps = {
- Student: Student[];
+  Student: Student[];
   documentUrls: DocumentUrls;
   classMap: Record<string, string>;
   onEdit: () => void;
   onDelete: () => void;
-   onStudentUpdate?: (updated: Student) => void; 
+  onStudentUpdate?: (updated: Student) => void;
 };
 
 type DocumentUrls = {
@@ -84,7 +84,7 @@ export function StudentPreview({
   classMap,
   onEdit,
   onDelete,
-    onStudentUpdate // ← Add this
+  onStudentUpdate // ← Add this
 
 }: StudentPreviewProps) {
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
@@ -93,143 +93,137 @@ export function StudentPreview({
   const currentStudent = Student?.[currentStudentIndex];
 
   // passport  photo save and preview state
-const [passportFilePath, setPassportFilePath] = useState<string | null>(null);
-const [passportImageUrl, setPassportImageUrl] = useState<string | null>(null);
-const [previewOpen, setPreviewOpen] = useState(false);
-const [snackbar, setSnackbar] = useState<{open: boolean;message: string;severity: 'success' |'error';}>({ open: false, message: '', severity: 'success' });
-// croper state
-const [crop, setCrop] = useState({ x: 0, y: 0 });
-const [zoom, setZoom] = useState(1);
-const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [passportFilePath, setPassportFilePath] = useState<string | null>(null);
+  const [passportImageUrl, setPassportImageUrl] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error'; }>({ open: false, message: '', severity: 'success' });
+  // croper state
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-const onCropComplete = (_: any, areaPixels: any) => {
-  setCroppedAreaPixels(areaPixels);
-};
+  const onCropComplete = (_: any, areaPixels: any) => {
+    setCroppedAreaPixels(areaPixels);
+  };
 
 
-const handlePassportOpen = async () => {
-  try {
-    const file = await open({
-      multiple: false,
-      directory: false,
-      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] }],
-    });
-    if (typeof file === 'string') {
-      setPassportFilePath(file);
+  const handlePassportOpen = async () => {
+    try {
+      const file = await open({
+        multiple: false,
+        directory: false,
+        filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] }],
+      });
+      if (typeof file === 'string') {
+        setPassportFilePath(file);
 
+      }
+    } catch (err) {
+      console.error("[handlePassportOpen] Error opening passport file:", err);
     }
-  } catch (err) {
-    console.error("[handlePassportOpen] Error opening passport file:", err);
-  }
-};
+  };
 
-useEffect(() => {
-  if (passportFilePath) {
-    const url = convertFileSrc(passportFilePath);
-    console.log("Selected image path:", passportFilePath);
-    console.log("Converted preview URL:", url);
-    setPassportImageUrl(url);
-    setPreviewOpen(true); // ✅ Only open the preview after URL is ready
-  }
-}, [passportFilePath]);
-const handleSave = async () => {
-  console.log("handleSave started");
+  useEffect(() => {
+    if (passportFilePath) {
+      const url = convertFileSrc(passportFilePath);
+      console.log("Selected image path:", passportFilePath);
+      console.log("Converted preview URL:", url);
+      setPassportImageUrl(url);
+      setPreviewOpen(true); // ✅ Only open the preview after URL is ready
+    }
+  }, [passportFilePath]);
+  const handleSave = async () => {
+    console.log("handleSave started");
 
-  if (!passportImageUrl || !croppedAreaPixels) {
-    console.warn("Missing passport image or crop area.");
-    return;
-  }
-  console.log("passportImageUrl and croppedAreaPixels are present");
+    if (!passportImageUrl || !croppedAreaPixels) {
+      console.warn("Missing passport image or crop area.");
+      return;
+    }
+    console.log("passportImageUrl and croppedAreaPixels are present");
 
-  try {
-    // 1. Get cropped image Blob from your cropper utility
-    console.log("Calling getCroppedImg...");
-    const croppedBlob = await getCroppedImg(passportImageUrl, croppedAreaPixels);
-    console.log("Cropped image blob obtained:", croppedBlob);
+    try {
+      // 1. Get cropped image Blob from your cropper utility
+      console.log("Calling getCroppedImg...");
+      const croppedBlob = await getCroppedImg(passportImageUrl, croppedAreaPixels);
+      console.log("Cropped image blob obtained:", croppedBlob);
 
-    // 2. Convert Blob to Uint8Array (binary format for writing)
-    console.log("Converting Blob to Uint8Array...");
-    const arrayBuffer = await croppedBlob.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    console.log("Uint8Array created with length:", uint8Array.length);
+      // 2. Convert Blob to Uint8Array (binary format for writing)
+      console.log("Converting Blob to Uint8Array...");
+      const arrayBuffer = await croppedBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      console.log("Uint8Array created with length:", uint8Array.length);
 
-    // 3. Generate a temporary filename and path
-    const tempFileName = `${uuidv4()}.png`;
-    const tempDir = await appDataDir();
-    const tempPath = `${tempDir}${tempFileName}`;
-    console.log("Temporary file path generated:", tempPath);
+      // 3. Generate a temporary filename and path
+      const tempFileName = `${uuidv4()}.png`;
+      const tempDir = await appDataDir();
+      const tempPath = `${tempDir}${tempFileName}`;
+      console.log("Temporary file path generated:", tempPath);
 
-    // 4. Write the cropped image to a temp file on disk using Tauri command
-    console.log("Writing binary file to tempPath...");
-    await invoke("write_binary_file", {
-      path: tempPath,
-      contents: Array.from(uint8Array), // convert Uint8Array to normal array for IPC
-    });
-    console.log("Temp file written successfully");
+      // 4. Write the cropped image to a temp file on disk using Tauri command
+      console.log("Writing binary file to tempPath...");
+      await invoke("write_binary_file", {
+        path: tempPath,
+        contents: Array.from(uint8Array), // convert Uint8Array to normal array for IPC
+      });
+      console.log("Temp file written successfully");
 
-    // 5. Send the temp file path to backend to copy/save permanently
-    console.log("Invoking save_passport_photo with tempPath:", tempPath);
-   const savedPath = await invoke<string>("save_passport_photo", {
-  passportFilePath: tempPath,
-});
-    console.log("Passport photo saved permanently at:", savedPath);
+      // 5. Send the temp file path to backend to copy/save permanently
+      console.log("Invoking save_passport_photo with tempPath:", tempPath);
+      const savedPath = await invoke<string>("save_passport_photo", {
+        passportFilePath: tempPath,
+      });
+      console.log("Passport photo saved permanently at:", savedPath);
 
-    // 6. Delete the temp file (cleanup)
-    console.log("Removing temp file:", tempPath);
-    await invoke("remove_file_cmd", { path: tempPath });
-    console.log("Temp file removed");
+      // 6. Delete the temp file (cleanup)
+      console.log("Removing temp file:", tempPath);
+      await invoke("remove_file_cmd", { path: tempPath });
+      console.log("Temp file removed");
 
-    // 7. Update the database with new saved image path
-    console.log("Updating database with new image path for student ID:", currentStudent.id);
-    await invoke("update_student_passport_photo", {
-      studentId: currentStudent.id,
-      imagePath: savedPath,
-    });
-    console.log("Database updated");
+      // 7. Update the database with new saved image path
+      console.log("Updating database with new image path for student ID:", currentStudent.id);
+      await invoke("update_student_passport_photo", {
+        studentId: currentStudent.id,
+        imagePath: savedPath,
+      });
+      console.log("Database updated");
 
-    // 8. Update the frontend image preview and state
-    console.log("Converting saved file path to URL");
-    const newImageUrl = convertFileSrc(savedPath);
-    console.log("New image URL:", newImageUrl);
+      // 8. Update the frontend image preview and state
+      console.log("Converting saved file path to URL");
+      const newImageUrl = convertFileSrc(savedPath);
+      console.log("New image URL:", newImageUrl);
 
-    Student[currentStudentIndex].passport_photo = savedPath;
-    setPassportImageUrl(newImageUrl);
-    setPreviewOpen(false);
-    console.log("Frontend state updated with new image");
+      Student[currentStudentIndex].passport_photo = savedPath;
+      setPassportImageUrl(newImageUrl);
+      setPreviewOpen(false);
+      console.log("Frontend state updated with new image");
 
-    setSnackbar({
-      open: true,
-      message: "Passport photo saved successfully!",
-      severity: "success",
-    });
+      setSnackbar({
+        open: true,
+        message: "Passport photo saved successfully!",
+        severity: "success",
+      });
 
-    // 9. Call parent update if callback provided
-    if (onStudentUpdate) {
-      console.log("Calling onStudentUpdate callback");
-      onStudentUpdate({
-        ...currentStudent,
-        passport_photo: savedPath,
+      // 9. Call parent update if callback provided
+      if (onStudentUpdate) {
+        console.log("Calling onStudentUpdate callback");
+        onStudentUpdate({
+          ...currentStudent,
+          passport_photo: savedPath,
+        });
+      }
+
+      console.log("handleSave completed successfully");
+    } catch (error) {
+      console.error("Error saving passport photo:", error);
+      setSnackbar({
+        open: true,
+        message: "Failed to save passport photo.",
+        severity: "error",
       });
     }
+  };
 
-    console.log("handleSave completed successfully");
-  } catch (error) {
-    console.error("Error saving passport photo:", error);
-    setSnackbar({
-      open: true,
-      message: "Failed to save passport photo.",
-      severity: "error",
-    });
-  }
-};
-
-
-
-
-
-
-
-if (!currentStudent) {
+  if (!currentStudent) {
     return (
       <Box sx={{ p: 1, textAlign: 'center' }}>
         <Typography variant="h6">No students selected</Typography>
@@ -237,22 +231,19 @@ if (!currentStudent) {
     );
   }
 
+  const passportPhoto = currentStudent?.passport_photo
+    ? convertFileSrc(currentStudent.passport_photo)
+    : documentUrls?.passport_photo || "/assets/avatars/avatar_1.jpg";
 
-
-
-const passportPhoto = currentStudent?.passport_photo
-  ? convertFileSrc(currentStudent.passport_photo)
-  : documentUrls?.passport_photo || "/assets/avatars/avatar_1.jpg";
-
-   return (
+  return (
     <Box
-  sx={{
-    p: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    maxHeight: '120vh', // or 110vh
-  }}
->
+      sx={{
+        p: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: '120vh', // or 110vh
+      }}
+    >
       {/* Header with photo background */}
       <Box sx={{ position: 'relative' }}>
         <Box sx={{ height: 160, backgroundImage: 'url("https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=1200&q=80")', backgroundSize: 'cover', backgroundPosition: 'center' }} />
@@ -278,71 +269,71 @@ const passportPhoto = currentStudent?.passport_photo
 
       {/* Student photo and basic info */}
       <Box sx={{ px: 4, position: 'relative', minHeight: 65 }}>
-  {/* Hover wrapper */}
-  <Box
-    sx={{
-      position: 'absolute',
-      top: -65,
-      left: 24,
-      width: 120,
-      height: 120,
-      borderRadius: '50%',
-      overflow: 'hidden',
-      '&:hover .avatar-overlay': {
-        opacity: 1,
-        pointerEvents: 'auto',
-      },
-    }}
-  >
-    {/* Avatar */}
-    <Avatar
-      src={passportPhoto}
-      sx={{
-        width: 120,
-        height: 120,
-        border: '4px solid white',
-        borderRadius: '50%',
-        boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)',
-        backgroundColor: 'white',
-      }}
-      onClick={handlePassportOpen}
-    />
+        {/* Hover wrapper */}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -65,
+            left: 24,
+            width: 120,
+            height: 120,
+            borderRadius: '50%',
+            overflow: 'hidden',
+            '&:hover .avatar-overlay': {
+              opacity: 1,
+              pointerEvents: 'auto',
+            },
+          }}
+        >
+          {/* Avatar */}
+          <Avatar
+            src={passportPhoto}
+            sx={{
+              width: 120,
+              height: 120,
+              border: '4px solid white',
+              borderRadius: '50%',
+              boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)',
+              backgroundColor: 'white',
+            }}
+            onClick={handlePassportOpen}
+          />
 
-    {/* Overlay with pen icon */}
-    <Box
-      className="avatar-overlay"
-      sx={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: '50%',
-        opacity: 0,
-        transition: 'opacity 0.3s',
-        pointerEvents: 'none',
-        cursor: 'pointer',
-      }}
-      onClick={handlePassportOpen}
-    >
-      <Iconify icon="solar:pen-bold" width={24} color="white" />
-    </Box>
-  </Box>
+          {/* Overlay with pen icon */}
+          <Box
+            className="avatar-overlay"
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '50%',
+              opacity: 0,
+              transition: 'opacity 0.3s',
+              pointerEvents: 'none',
+              cursor: 'pointer',
+            }}
+            onClick={handlePassportOpen}
+          >
+            <Iconify icon="solar:pen-bold" width={24} color="white" />
+          </Box>
+        </Box>
 
-  {/* Student Info */}
-  <Box sx={{ pl: 16, pt: 2 }}>
-    <Typography variant="subtitle1" fontWeight={600}>
-      {currentStudent.full_name}, Class: {currentStudent.class_id}, Section: {currentStudent.section}
-    </Typography>
-    <Typography variant="body2">
-      GR No: {currentStudent.gr_number} | Roll No: {currentStudent.roll_number}
-    </Typography>
-  </Box>
-</Box>
+        {/* Student Info */}
+        <Box sx={{ pl: 16, pt: 2 }}>
+          <Typography variant="subtitle1" fontWeight={600}>
+            {currentStudent.full_name}, Class: {currentStudent.class_id}, Section: {currentStudent.section}
+          </Typography>
+          <Typography variant="body2">
+            GR No: {currentStudent.gr_number} | Roll No: {currentStudent.roll_number}
+          </Typography>
+        </Box>
+      </Box>
 
       {/* Student profile preview */}
       <Box
@@ -396,10 +387,10 @@ const passportPhoto = currentStudent?.passport_photo
                     <TableCell>{currentStudent.nationality || '-'}</TableCell>
                   </TableRow>
                   <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Section</TableCell>
-                    <TableCell>{currentStudent.section || '-'}</TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>Academic Year</TableCell>
                     <TableCell>{currentStudent.academic_year || '-'}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }} />
+                    <TableCell />
                   </TableRow>
                 </TableBody>
               </Table>
@@ -524,88 +515,88 @@ const passportPhoto = currentStudent?.passport_photo
                 </TableBody>
               </Table>
             </TableContainer>
-            
+
           </>
         )}
       </Box>
 
       <Dialog
-  open={previewOpen}
-  onClose={(event, reason) => {
-    if (reason !== 'backdropClick') {
-      setPreviewOpen(false);
-    }
-  }}
-  maxWidth="xs"
-  fullWidth
-  disableEscapeKeyDown
-  BackdropProps={{
-    sx: {
-      backgroundColor: 'rgba(0, 0, 0, 0.78)',
-    },
-  }}
->
-  <DialogTitle>Preview Passport Photo</DialogTitle>
-  <DialogContent sx={{ backgroundColor: '#333', p: 0 }}>
-  {passportImageUrl ? (
-    <>
-      {/* Cropper Area */}
-      <Box sx={{ position: 'relative', height: 400 }}>
-        <Cropper
-          image={passportImageUrl}
-          crop={crop}
-          zoom={zoom}
-          aspect={1}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={onCropComplete}
-        />
-      </Box>
+        open={previewOpen}
+        onClose={(event, reason) => {
+          if (reason !== 'backdropClick') {
+            setPreviewOpen(false);
+          }
+        }}
+        maxWidth="xs"
+        fullWidth
+        disableEscapeKeyDown
+        BackdropProps={{
+          sx: {
+            backgroundColor: 'rgba(0, 0, 0, 0.78)',
+          },
+        }}
+      >
+        <DialogTitle>Preview Passport Photo</DialogTitle>
+        <DialogContent sx={{ backgroundColor: '#333', p: 0 }}>
+          {passportImageUrl ? (
+            <>
+              {/* Cropper Area */}
+              <Box sx={{ position: 'relative', height: 400 }}>
+                <Cropper
+                  image={passportImageUrl}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
+                />
+              </Box>
 
-      {/* Zoom Slider Area */}
-      <Box sx={{ px: 3, py: 2, backgroundColor: '#222' }}>
-        <Typography variant="body2" color="white" gutterBottom>
-          Zoom
-        </Typography>
-        <Slider
-          min={1}
-          max={3}
-          step={0.1}
-          value={zoom}
-          onChange={(_, value) => setZoom(value as number)}
-          valueLabelDisplay="auto"
-          sx={{
-            color: '#90caf9',
-            '& .MuiSlider-thumb': { color: '#fff' },
-            '& .MuiSlider-track': { color: '#90caf9' },
-            '& .MuiSlider-rail': { color: '#555' },
-          }}
-        />
-      </Box>
-    </>
-  ) : (
-    <Typography sx={{ p: 2, color: 'white' }}>No image selected</Typography>
-  )}
-</DialogContent>
+              {/* Zoom Slider Area */}
+              <Box sx={{ px: 3, py: 2, backgroundColor: '#222' }}>
+                <Typography variant="body2" color="white" gutterBottom>
+                  Zoom
+                </Typography>
+                <Slider
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(_, value) => setZoom(value as number)}
+                  valueLabelDisplay="auto"
+                  sx={{
+                    color: '#90caf9',
+                    '& .MuiSlider-thumb': { color: '#fff' },
+                    '& .MuiSlider-track': { color: '#90caf9' },
+                    '& .MuiSlider-rail': { color: '#555' },
+                  }}
+                />
+              </Box>
+            </>
+          ) : (
+            <Typography sx={{ p: 2, color: 'white' }}>No image selected</Typography>
+          )}
+        </DialogContent>
 
-  <DialogActions>
-    <Button onClick={() => setPreviewOpen(false)} color="secondary">Cancel</Button>
-    <Button onClick={handleSave} color="primary" variant="contained">Save</Button>
-  </DialogActions>
-</Dialog>
-      
-       {/* Snackbar positioned at top center */}
-            <Snackbar 
-              open={snackbar.open} 
-              autoHideDuration={3000} 
-              onClose={() => setSnackbar({ ...snackbar, open: false })}
-              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-            >
-              <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-                {snackbar.message}
-              </Alert>
-            </Snackbar>
+        <DialogActions>
+          <Button onClick={() => setPreviewOpen(false)} color="secondary">Cancel</Button>
+          <Button onClick={handleSave} color="primary" variant="contained">Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar positioned at top center */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
-    
+
   );
 }

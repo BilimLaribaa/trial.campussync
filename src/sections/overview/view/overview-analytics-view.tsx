@@ -7,7 +7,6 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { SchoolContext } from 'src/contexts/SchoolContext';
 import { _posts, _tasks, _traffic, _timeline } from 'src/_mock';
 
 import Config from "../../../../config";

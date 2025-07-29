@@ -88,14 +88,17 @@ interface SnackbarState {
 export function StudentView() {
   const navigate = useNavigate();
   const { grNumber, setGrNumber } = useStudentSearch();
+  //  filteration of student on class selcetion start
   const [students, setStudents] = useState<Student[]>([]);
-  const [documentUrls, setDocumentUrls] = useState<Record<number, DocumentUrls>>({});
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string>('');
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [classMap, setClassMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [classes, setClasses] = useState<Class[]>([]);
-  const [selectedClass, setSelectedClass] = useState<string>('');
+  //  filteration of student on class selcetion end
+  const [documentUrls, setDocumentUrls] = useState<Record<number, DocumentUrls>>({});
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
     message: '',
@@ -127,17 +130,31 @@ export function StudentView() {
 
   const handleClassChange = (classId: string) => {
     setSelectedClass(classId);
-    setSelectedStudentId(null); // Reset selected student when class changes
+    setSelectedStudentId(null); // Reset selected student when changing class
+
+    if (!classId) {
+      // If no class selected, show all students
+      setFilteredStudents(students);
+      return;
+    }
+
+    // Filter students by class_id
+    const filtered = students.filter(student =>
+      String(student.class_id) === String(classId)
+    );
+
+    setFilteredStudents(filtered);
+
+    // Auto-select first student in filtered list if available
+    if (filtered.length > 0) {
+      setSelectedStudentId(filtered[0].id);
+    }
   };
-
-
-
   // Selected student data
   const selectedStudent = useMemo(() =>
     students.find(s => s.id === selectedStudentId),
     [students, selectedStudentId]
   );
-
   // Handle student deletion
   const handleDelete = async () => {
     if (!selectedStudentId) {
@@ -148,7 +165,6 @@ export function StudentView() {
       });
       return;
     }
-
     try {
       setLoading(true);
       await invoke('delete_student', { id: selectedStudentId });
@@ -170,8 +186,9 @@ export function StudentView() {
     }
   };
 
+
   const studentListProps = {
-    students, // Pass all students, not filteredStudents
+    students: filteredStudents,
     classMap,
     classes,
     selectedStudentId,
@@ -212,8 +229,9 @@ export function StudentView() {
         setClasses(classesData);
         setClassMap(newClassMap);
         setStudents(studentsData);
+        setFilteredStudents(studentsData); // Initialize with all students
 
-        // Set initial selected student if any exist
+        // Auto-select first student if available
         if (studentsData.length > 0) {
           setSelectedStudentId(studentsData[0].id);
         }
@@ -224,6 +242,7 @@ export function StudentView() {
         setLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
@@ -409,25 +428,27 @@ export function StudentView() {
           </Stack>
         </Stack>
 
-        <TextField
-          select
-          fullWidth
-          size="small"
-          label="Select Class"
-          value={selectedClass}
-          onChange={(e) => handleClassChange(e.target.value)}
-          sx={{ maxWidth: 300 }} // ✅ valid use of `sx`
-        >
-          <MenuItem value="">All Classes</MenuItem>
-          {classes.map((cls) => (
-            <MenuItem key={cls.id} value={cls.id}>
-              {cls.class_name}
-            </MenuItem>
-          ))}
-        </TextField>
+
 
         <Stack direction="row" spacing={2} alignItems="flex-start">
+
           <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: '120vh' }}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Select Class"
+              value={selectedClass}
+              onChange={(e) => handleClassChange(e.target.value)}
+              sx={{ maxWidth: 300 }} // ✅ valid use of `sx`
+            >
+              <MenuItem value="">All Classes</MenuItem>
+              {classes.map((cls) => (
+                <MenuItem key={cls.id} value={cls.id}>
+                  {cls.class_name}
+                </MenuItem>
+              ))}
+            </TextField>
             <StudentList {...studentListProps} />
           </Card>
 
@@ -435,8 +456,8 @@ export function StudentView() {
             sx={{
               width: '70%',
               borderRadius: 3,
-              maxHeight: '120vh', 
-              height: 'auto' 
+              maxHeight: '120vh',
+              height: 'auto'
             }}
           >
             <StudentPreview {...studentPreviewProps} />

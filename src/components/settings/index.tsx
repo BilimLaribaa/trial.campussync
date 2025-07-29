@@ -394,125 +394,129 @@ export function Settings({ onUpdateEmailSettings }: {
   );
 
   const renderAcademicYearForm = () => (
-    <Box
-      sx={{
-        position: 'absolute',
-        top: 30,
-        right: 70,
-        width: 500,
-        bgcolor: 'background.paper',
-        boxShadow: 1,
-        p: 2,
-        borderRadius: 1,
-        zIndex: 1200,
-      }}
-    >
-      <Typography variant="subtitle1" gutterBottom>
-        Academic Year Management
-      </Typography>
-      
-      <Box sx={{ mb: 3 }}>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id="academic-year-label">Academic Year</InputLabel>
-          <Select
-            labelId="academic-year-label"
-            value={academicYearSettings.newYear}
-            onChange={(e) => handleNewYearChange(e.target.value)}
-            label="Academic Year"
-          >
-            <MenuItem value="">
-              <em>Select an academic year</em>
-            </MenuItem>
-            {Array.from(new Set([
-              ...academicYearSettings.years.map(y => y.academic_year),
-              ...academicYearSettings.generatedYears
-            ])).map((year) => (
-              <MenuItem key={year} value={year}>
-                {year}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        
-        <Button
-          variant="contained"
-          onClick={handleAcademicYearSubmit}
-          fullWidth
-          disabled={!academicYearSettings.newYear}
+  <Box
+    sx={{
+      position: 'absolute',
+      top: 30,
+      right: 70,
+      width: 500,
+      bgcolor: 'background.paper',
+      boxShadow: 1,
+      p: 2,
+      borderRadius: 1,
+      zIndex: 1200,
+      display: 'flex',
+      flexDirection: 'column',
+      height: 'calc(100% - 100px)', // Adjust this value as needed
+    }}
+  >
+    <Typography variant="subtitle1" gutterBottom>
+      Academic Year Management
+    </Typography>
+    
+    <Box sx={{ mb: 3 }}>
+      <FormControl fullWidth sx={{ mb: 2 }}>
+        <InputLabel id="academic-year-label">Academic Year</InputLabel>
+        <Select
+          labelId="academic-year-label"
+          value={academicYearSettings.newYear}
+          onChange={(e) => handleNewYearChange(e.target.value)}
+          label="Academic Year"
         >
-          {academicYearSettings.years.some(y => y.academic_year === academicYearSettings.newYear) 
-            ? 'Update Academic Year' 
-            : 'Add Academic Year'}
-        </Button>
-      </Box>
+          <MenuItem value="">
+            <em>Select an academic year</em>
+          </MenuItem>
+          {Array.from(new Set([
+            ...academicYearSettings.years.map(y => y.academic_year),
+            ...academicYearSettings.generatedYears
+          ])).map((year) => (
+            <MenuItem key={year} value={year}>
+              {year}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
       
-      <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Current Academic Year
+      <Button
+        variant="contained"
+        onClick={handleAcademicYearSubmit}
+        fullWidth
+        disabled={!academicYearSettings.newYear}
+      >
+        {academicYearSettings.years.some(y => y.academic_year === academicYearSettings.newYear) 
+          ? 'Update Academic Year' 
+          : 'Add Academic Year'}
+      </Button>
+    </Box>
+    
+    <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Typography variant="subtitle1" gutterBottom>
+        Current Academic Year
+      </Typography>
+      {academicYearSettings.currentYear ? (
+        <Typography variant="body2" color="text.secondary" paragraph>
+          {academicYearSettings.currentYear}
         </Typography>
-        {academicYearSettings.currentYear ? (
-          <Typography variant="body2" color="text.secondary" paragraph>
-            {academicYearSettings.currentYear}
-          </Typography>
-        ) : (
-          <Typography variant="body2" color="text.secondary" paragraph>
-            No academic year selected
-          </Typography>
-        )}
-      </Box>
-      
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="subtitle1" gutterBottom>
-          Available Academic Years
+      ) : (
+        <Typography variant="body2" color="text.secondary" paragraph>
+          No academic year selected
         </Typography>
-        {academicYearSettings.years.length === 0 ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              No academic years available. Please add one.
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
-            {academicYearSettings.years.map((year) => (
-              <Box 
-                key={year.id} 
-                sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  p: 1,
-                  borderBottom: '1px solid',
-                  borderColor: 'divider'
-                }}
-              >
-                <Typography variant="body2">
-                  {year.academic_year} {year.status === 'active' && '(Current)'}
-                </Typography>
-                <Box>
-                  {year.status !== 'active' && (
-                    <Button 
-                      size="small" 
-                      onClick={() => handleSetCurrentYear(year.id)}
-                      sx={{ mr: 1 }}
-                    >
-                      Set Current
-                    </Button>
-                  )}
+      )}
+    </Box>
+    
+    <Box sx={{ mt: 3, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="subtitle1" gutterBottom>
+        Available Academic Years
+      </Typography>
+      {academicYearSettings.years.length === 0 ? (
+        <Box sx={{ p: 2, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            No academic years available. Please add one.
+          </Typography>
+        </Box>
+      ) : (
+        <Box sx={{ flex: 1, overflowY: 'auto', mb: 2 }}>
+          {academicYearSettings.years.map((year) => (
+            <Box 
+              key={year.id} 
+              sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                p: 1,
+                borderBottom: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="body2">
+                {year.academic_year} {year.status === 'active' && '(Current)'}
+              </Typography>
+              <Box>
+                {year.status !== 'active' && (
                   <Button 
                     size="small" 
-                    color="error"
-                    onClick={() => handleDeleteYear(year.id)}
+                    onClick={() => handleSetCurrentYear(year.id)}
+                    sx={{ mr: 1 }}
                   >
-                    Delete
+                    Set Current
                   </Button>
-                </Box>
+                )}
+                <Button 
+                  size="small" 
+                  color="error"
+                  onClick={() => handleDeleteYear(year.id)}
+                >
+                  Delete
+                </Button>
               </Box>
-            ))}
-          </Box>
-        )}
-      </Box>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
-  );
+  </Box>
+);
+
 
   const renderActiveForm = () => {
     switch (activeTab) {
