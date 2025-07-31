@@ -80,19 +80,18 @@ type DocumentUrls = {
 
 export function StudentPreview({
   Student,
-  documentUrls = {}, // Provide default empty object
+  documentUrls = {},
   classMap,
   onEdit,
   onDelete,
-  onStudentUpdate // ← Add this
-
+  onStudentUpdate
 }: StudentPreviewProps) {
   const [currentStudentIndex, setCurrentStudentIndex] = useState(0);
   const [infoTab, setInfoTab] = useState<'general' | 'contact' | 'health' | 'documents'>('general');
   const previewRef = useRef<HTMLDivElement | null>(null);
   const currentStudent = Student?.[currentStudentIndex];
 
-  // passport  photo save and preview state
+  // passport photo save and preview state
   const [passportFilePath, setPassportFilePath] = useState<string | null>(null);
   const [passportImageUrl, setPassportImageUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -106,8 +105,9 @@ export function StudentPreview({
     setCroppedAreaPixels(areaPixels);
   };
 
-
   const handlePassportOpen = async () => {
+    if (!currentStudent) return;
+    
     try {
       const file = await open({
         multiple: false,
@@ -116,7 +116,6 @@ export function StudentPreview({
       });
       if (typeof file === 'string') {
         setPassportFilePath(file);
-
       }
     } catch (err) {
       console.error("[handlePassportOpen] Error opening passport file:", err);
@@ -129,73 +128,47 @@ export function StudentPreview({
       console.log("Selected image path:", passportFilePath);
       console.log("Converted preview URL:", url);
       setPassportImageUrl(url);
-      setPreviewOpen(true); // ✅ Only open the preview after URL is ready
+      setPreviewOpen(true);
     }
   }, [passportFilePath]);
+
   const handleSave = async () => {
     console.log("handleSave started");
 
-    if (!passportImageUrl || !croppedAreaPixels) {
-      console.warn("Missing passport image or crop area.");
+    if (!passportImageUrl || !croppedAreaPixels || !currentStudent) {
+      console.warn("Missing passport image or crop area or no student selected.");
       return;
     }
-    console.log("passportImageUrl and croppedAreaPixels are present");
 
     try {
-      // 1. Get cropped image Blob from your cropper utility
-      console.log("Calling getCroppedImg...");
       const croppedBlob = await getCroppedImg(passportImageUrl, croppedAreaPixels);
-      console.log("Cropped image blob obtained:", croppedBlob);
-
-      // 2. Convert Blob to Uint8Array (binary format for writing)
-      console.log("Converting Blob to Uint8Array...");
       const arrayBuffer = await croppedBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      console.log("Uint8Array created with length:", uint8Array.length);
 
-      // 3. Generate a temporary filename and path
       const tempFileName = `${uuidv4()}.png`;
       const tempDir = await appDataDir();
       const tempPath = `${tempDir}${tempFileName}`;
-      console.log("Temporary file path generated:", tempPath);
 
-      // 4. Write the cropped image to a temp file on disk using Tauri command
-      console.log("Writing binary file to tempPath...");
       await invoke("write_binary_file", {
         path: tempPath,
-        contents: Array.from(uint8Array), // convert Uint8Array to normal array for IPC
+        contents: Array.from(uint8Array),
       });
-      console.log("Temp file written successfully");
 
-      // 5. Send the temp file path to backend to copy/save permanently
-      console.log("Invoking save_passport_photo with tempPath:", tempPath);
       const savedPath = await invoke<string>("save_passport_photo", {
         passportFilePath: tempPath,
       });
-      console.log("Passport photo saved permanently at:", savedPath);
 
-      // 6. Delete the temp file (cleanup)
-      console.log("Removing temp file:", tempPath);
       await invoke("remove_file_cmd", { path: tempPath });
-      console.log("Temp file removed");
 
-      // 7. Update the database with new saved image path
-      console.log("Updating database with new image path for student ID:", currentStudent.id);
       await invoke("update_student_passport_photo", {
         studentId: currentStudent.id,
         imagePath: savedPath,
       });
-      console.log("Database updated");
 
-      // 8. Update the frontend image preview and state
-      console.log("Converting saved file path to URL");
       const newImageUrl = convertFileSrc(savedPath);
-      console.log("New image URL:", newImageUrl);
-
       Student[currentStudentIndex].passport_photo = savedPath;
       setPassportImageUrl(newImageUrl);
       setPreviewOpen(false);
-      console.log("Frontend state updated with new image");
 
       setSnackbar({
         open: true,
@@ -203,16 +176,12 @@ export function StudentPreview({
         severity: "success",
       });
 
-      // 9. Call parent update if callback provided
       if (onStudentUpdate) {
-        console.log("Calling onStudentUpdate callback");
         onStudentUpdate({
           ...currentStudent,
           passport_photo: savedPath,
         });
       }
-
-      console.log("handleSave completed successfully");
     } catch (error) {
       console.error("Error saving passport photo:", error);
       setSnackbar({
@@ -222,14 +191,6 @@ export function StudentPreview({
       });
     }
   };
-
-  if (!currentStudent) {
-    return (
-      <Box sx={{ p: 1, textAlign: 'center' }}>
-        <Typography variant="h6">No students selected</Typography>
-      </Box>
-    );
-  }
 
   const passportPhoto = currentStudent?.passport_photo
     ? convertFileSrc(currentStudent.passport_photo)
@@ -241,10 +202,10 @@ export function StudentPreview({
         p: 0,
         display: 'flex',
         flexDirection: 'column',
-        maxHeight: '120vh', // or 110vh
+        maxHeight: '120vh',
       }}
     >
-      {/* Header with photo background */}
+      {/* Header with photo background - Always shown */}
       <Box sx={{ position: 'relative' }}>
         <Box sx={{ height: 160, backgroundImage: 'url("https://images.unsplash.com/photo-1503264116251-35a269479413?auto=format&fit=crop&w=1200&q=80")', backgroundSize: 'cover', backgroundPosition: 'center' }} />
         <Box sx={{ position: 'absolute', top: 12, right: 12, backdropFilter: 'blur(4px)', backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 1, p: 0.5 }}>
@@ -267,9 +228,8 @@ export function StudentPreview({
         </Box>
       </Box>
 
-      {/* Student photo and basic info */}
+      {/* Student photo and basic info - Always shown */}
       <Box sx={{ px: 4, position: 'relative', minHeight: 65 }}>
-        {/* Hover wrapper */}
         <Box
           sx={{
             position: 'absolute',
@@ -280,12 +240,11 @@ export function StudentPreview({
             borderRadius: '50%',
             overflow: 'hidden',
             '&:hover .avatar-overlay': {
-              opacity: 1,
-              pointerEvents: 'auto',
+              opacity: currentStudent ? 1 : 0,
+              pointerEvents: currentStudent ? 'auto' : 'none',
             },
           }}
         >
-          {/* Avatar */}
           <Avatar
             src={passportPhoto}
             sx={{
@@ -296,10 +255,9 @@ export function StudentPreview({
               boxShadow: '0 0 8px rgba(0, 0, 0, 0.15)',
               backgroundColor: 'white',
             }}
-            onClick={handlePassportOpen}
+            onClick={currentStudent ? handlePassportOpen : undefined}
           />
 
-          {/* Overlay with pen icon */}
           <Box
             className="avatar-overlay"
             sx={{
@@ -318,19 +276,18 @@ export function StudentPreview({
               pointerEvents: 'none',
               cursor: 'pointer',
             }}
-            onClick={handlePassportOpen}
+            onClick={currentStudent ? handlePassportOpen : undefined}
           >
             <Iconify icon="solar:pen-bold" width={24} color="white" />
           </Box>
         </Box>
 
-        {/* Student Info */}
         <Box sx={{ pl: 16, pt: 2 }}>
           <Typography variant="subtitle1" fontWeight={600}>
-            {currentStudent.full_name}, Class: {currentStudent.class_id}, Section: {currentStudent.section}
+            {currentStudent ? `${currentStudent.full_name}, Class: ${currentStudent.class_id}, Section: ${currentStudent.section}` : 'No student selected'}
           </Typography>
           <Typography variant="body2">
-            GR No: {currentStudent.gr_number} | Roll No: {currentStudent.roll_number}
+            {currentStudent ? `GR No: ${currentStudent.gr_number} | Roll No: ${currentStudent.roll_number}` : 'Select a student to view details'}
           </Typography>
         </Box>
       </Box>
@@ -341,181 +298,195 @@ export function StudentPreview({
         sx={{
           flex: 1,
           px: 3,
-          pb: 3
+          pb: 3,
+          overflow: 'auto'
         }}
       >
-        {infoTab === 'general' && (
+        {!currentStudent ? (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100%',
+            
+          }}>
+            <Typography variant="h6">No students selected</Typography>
+          </Box>
+        ) : (
           <>
-            <Typography fontWeight={600} mb={1} fontSize={16}>General Information</Typography>
-            <TableContainer>
-              <Table>
-                <TableBody>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>GR Number</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.gr_number || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>Roll Number</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.roll_number || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Full Name</TableCell>
-                    <TableCell>{currentStudent.full_name || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Date of Birth</TableCell>
-                    <TableCell>{currentStudent.dob || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Gender</TableCell>
-                    <TableCell>{currentStudent.gender || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Class</TableCell>
-                    <TableCell>{currentStudent.class_id || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Mother&apos;s Name</TableCell>
-                    <TableCell>{currentStudent.mother_name || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Mother&apos;s Occupation</TableCell>
-                    <TableCell>{currentStudent.mother_occupation || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Father&apos;s Name</TableCell>
-                    <TableCell>{currentStudent.father_name || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Father&apos;s Occupation</TableCell>
-                    <TableCell>{currentStudent.father_occupation || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Annual Income</TableCell>
-                    <TableCell>{currentStudent.annual_income !== undefined && currentStudent.annual_income !== null ? `$${currentStudent.annual_income}` : currentStudent.annual_income === 0 ? '$0' : '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Nationality</TableCell>
-                    <TableCell>{currentStudent.nationality || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Academic Year</TableCell>
-                    <TableCell>{currentStudent.academic_year || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }} />
-                    <TableCell />
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
+            {infoTab === 'general' && (
+              <>
+                <Typography fontWeight={600} mb={1} fontSize={16}>General Information</Typography>
+                <TableContainer>
+                  <Table>
+                    <TableBody>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>GR Number</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.gr_number || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>Roll Number</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.roll_number || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Full Name</TableCell>
+                        <TableCell>{currentStudent.full_name || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Date of Birth</TableCell>
+                        <TableCell>{currentStudent.dob || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Gender</TableCell>
+                        <TableCell>{currentStudent.gender || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Class</TableCell>
+                        <TableCell>{currentStudent.class_id || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Mother&apos;s Name</TableCell>
+                        <TableCell>{currentStudent.mother_name || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Mother&apos;s Occupation</TableCell>
+                        <TableCell>{currentStudent.mother_occupation || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Father&apos;s Name</TableCell>
+                        <TableCell>{currentStudent.father_name || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Father&apos;s Occupation</TableCell>
+                        <TableCell>{currentStudent.father_occupation || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Annual Income</TableCell>
+                        <TableCell>{currentStudent.annual_income !== undefined && currentStudent.annual_income !== null ? `$${currentStudent.annual_income}` : currentStudent.annual_income === 0 ? '$0' : '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Nationality</TableCell>
+                        <TableCell>{currentStudent.nationality || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Academic Year</TableCell>
+                        <TableCell>{currentStudent.academic_year || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }} />
+                        <TableCell />
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
+            )}
 
-        {infoTab === 'contact' && (
-          <>
-            <Typography fontWeight={600} mb={1} fontSize={16}>Contact Information</Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableBody>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>Email</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.email || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>Mobile Number</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.mobile_number || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Alternate Contact</TableCell>
-                    <TableCell>{currentStudent.alternate_contact_number || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Address</TableCell>
-                    <TableCell>{currentStudent.address || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>City</TableCell>
-                    <TableCell>{currentStudent.city || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>State</TableCell>
-                    <TableCell>{currentStudent.state || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Country</TableCell>
-                    <TableCell>{currentStudent.country || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Postal Code</TableCell>
-                    <TableCell>{currentStudent.postal_code || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Guardian Contact Info</TableCell>
-                    <TableCell colSpan={3}>{currentStudent.guardian_contact_info || '-'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
+            {infoTab === 'contact' && (
+              <>
+                <Typography fontWeight={600} mb={1} fontSize={16}>Contact Information</Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>Email</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.email || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>Mobile Number</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.mobile_number || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Alternate Contact</TableCell>
+                        <TableCell>{currentStudent.alternate_contact_number || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Address</TableCell>
+                        <TableCell>{currentStudent.address || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>City</TableCell>
+                        <TableCell>{currentStudent.city || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>State</TableCell>
+                        <TableCell>{currentStudent.state || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Country</TableCell>
+                        <TableCell>{currentStudent.country || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Postal Code</TableCell>
+                        <TableCell>{currentStudent.postal_code || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Guardian Contact Info</TableCell>
+                        <TableCell colSpan={3}>{currentStudent.guardian_contact_info || '-'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
+            )}
 
-        {infoTab === 'health' && (
-          <>
-            <Typography fontWeight={600} mb={1} fontSize={16}>Health & Admission</Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableBody>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>Blood Group</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.blood_group || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>Status</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.status || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Admission Date</TableCell>
-                    <TableCell>{currentStudent.admission_date || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Weight (kg)</TableCell>
-                    <TableCell>{currentStudent.weight_kg?.toString() || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Height (cm)</TableCell>
-                    <TableCell>{currentStudent.height_cm?.toString() || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>HB Range</TableCell>
-                    <TableCell>{currentStudent.hb_range || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Medical Conditions</TableCell>
-                    <TableCell colSpan={3}>{currentStudent.medical_conditions || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Emergency Contact Person</TableCell>
-                    <TableCell>{currentStudent.emergency_contact_person || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Emergency Contact</TableCell>
-                    <TableCell>{currentStudent.emergency_contact || '-'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </>
-        )}
+            {infoTab === 'health' && (
+              <>
+                <Typography fontWeight={600} mb={1} fontSize={16}>Health & Admission</Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>Blood Group</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.blood_group || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>Status</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.status || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Admission Date</TableCell>
+                        <TableCell>{currentStudent.admission_date || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Weight (kg)</TableCell>
+                        <TableCell>{currentStudent.weight_kg?.toString() || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Height (cm)</TableCell>
+                        <TableCell>{currentStudent.height_cm?.toString() || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>HB Range</TableCell>
+                        <TableCell>{currentStudent.hb_range || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Medical Conditions</TableCell>
+                        <TableCell colSpan={3}>{currentStudent.medical_conditions || '-'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Emergency Contact Person</TableCell>
+                        <TableCell>{currentStudent.emergency_contact_person || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Emergency Contact</TableCell>
+                        <TableCell>{currentStudent.emergency_contact || '-'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
+            )}
 
-        {infoTab === 'documents' && (
-          <>
-            <Typography fontWeight={600} mb={1} fontSize={16}>Documents</Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableBody>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>Birth Certificate</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.birth_certificate ? 'Available' : 'Not available'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500, width: '18%' }}>Transfer Certificate</TableCell>
-                    <TableCell sx={{ width: '32%' }}>{currentStudent.transfer_certificate ? 'Available' : 'Not available'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Previous Academic Records</TableCell>
-                    <TableCell>{currentStudent.previous_academic_records ? 'Available' : 'Not available'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Address Proof</TableCell>
-                    <TableCell>{currentStudent.address_proof ? 'Available' : 'Not available'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>ID Proof</TableCell>
-                    <TableCell>{currentStudent.id_proof ? 'Available' : 'Not available'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Passport Photo</TableCell>
-                    <TableCell>{currentStudent.passport_photo ? 'Available' : 'Not available'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'background.paper' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Medical Certificate</TableCell>
-                    <TableCell>{currentStudent.medical_certificate ? 'Available' : 'Not available'}</TableCell>
-                    <TableCell sx={{ fontWeight: 500 }}>Vaccination Certificate</TableCell>
-                    <TableCell>{currentStudent.vaccination_certificate ? 'Available' : 'Not available'}</TableCell>
-                  </TableRow>
-                  <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 500 }}>Other Documents</TableCell>
-                    <TableCell colSpan={3}>{currentStudent.other_documents || 'None'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-
+            {infoTab === 'documents' && (
+              <>
+                <Typography fontWeight={600} mb={1} fontSize={16}>Documents</Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>Birth Certificate</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.birth_certificate ? 'Available' : 'Not available'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500, width: '18%' }}>Transfer Certificate</TableCell>
+                        <TableCell sx={{ width: '32%' }}>{currentStudent.transfer_certificate ? 'Available' : 'Not available'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Previous Academic Records</TableCell>
+                        <TableCell>{currentStudent.previous_academic_records ? 'Available' : 'Not available'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Address Proof</TableCell>
+                        <TableCell>{currentStudent.address_proof ? 'Available' : 'Not available'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>ID Proof</TableCell>
+                        <TableCell>{currentStudent.id_proof ? 'Available' : 'Not available'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Passport Photo</TableCell>
+                        <TableCell>{currentStudent.passport_photo ? 'Available' : 'Not available'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'background.paper' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Medical Certificate</TableCell>
+                        <TableCell>{currentStudent.medical_certificate ? 'Available' : 'Not available'}</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>Vaccination Certificate</TableCell>
+                        <TableCell>{currentStudent.vaccination_certificate ? 'Available' : 'Not available'}</TableCell>
+                      </TableRow>
+                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                        <TableCell sx={{ fontWeight: 500 }}>Other Documents</TableCell>
+                        <TableCell colSpan={3}>{currentStudent.other_documents || 'None'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
+            )}
           </>
         )}
       </Box>
@@ -540,7 +511,6 @@ export function StudentPreview({
         <DialogContent sx={{ backgroundColor: '#333', p: 0 }}>
           {passportImageUrl ? (
             <>
-              {/* Cropper Area */}
               <Box sx={{ position: 'relative', height: 400 }}>
                 <Cropper
                   image={passportImageUrl}
@@ -553,7 +523,6 @@ export function StudentPreview({
                 />
               </Box>
 
-              {/* Zoom Slider Area */}
               <Box sx={{ px: 3, py: 2, backgroundColor: '#222' }}>
                 <Typography variant="body2" color="white" gutterBottom>
                   Zoom
@@ -585,7 +554,6 @@ export function StudentPreview({
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar positioned at top center */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
@@ -597,6 +565,5 @@ export function StudentPreview({
         </Alert>
       </Snackbar>
     </Box>
-
   );
 }

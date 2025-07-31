@@ -286,23 +286,26 @@ export function EnquiryReview() {
   };
 
   const handleAddNote = async () => {
-    if (!newNote.trim()) return;
+  if (!newNote.trim()) return;
 
-    try {
-      await invoke('add_enquiry_note', {
-        enquiryId: Number(id),
+  try {
+    await invoke('add_enquiry_note', {
+      note: {
+        enquiry_id: Number(id),
         notes: newNote,
-      });
-      setSuccessMessage('Note added successfully!');
-      setShowToast(true);
-      setNewNote('');
-      fetchNotes();
-    } catch (error) {
-      console.error('Error adding note:', error);
-      setSuccessMessage('Failed to add note');
-      setShowToast(true);
-    }
-  };
+      },
+    });
+    setSuccessMessage('Note added successfully!');
+    setShowToast(true);
+    setNewNote('');
+    fetchNotes();
+  } catch (error) {
+    console.error('Error adding note:', error);
+    setSuccessMessage('Failed to add note');
+    setShowToast(true);
+  }
+};
+
 
   const renderDayCellWithBadge = (dayCellInfo: any) => {
     const cellDate = dayCellInfo.date;

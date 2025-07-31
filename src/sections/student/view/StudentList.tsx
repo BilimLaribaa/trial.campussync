@@ -70,7 +70,7 @@ export function StudentList({
 
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column'}}>
       {students.length === 0 ? (
         <Box display="flex" justifyContent="center" alignItems="center" height="100%">
           <Typography variant="body1" color="text.secondary">

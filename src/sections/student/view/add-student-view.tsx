@@ -214,34 +214,123 @@ export function AddStudentView({ editingStudent = null }: AddStudentViewProps) {
   const [studentId, setStudentId] = useState<number | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof Student, string>>>({});
   const [activeStep, setActiveStep] = useState(0);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' });
   const [touched, setTouched] = useState<Record<string, boolean>>({})
 //  documents states in form 4 
-const [documentFilePath, setDocumentFilePath] = useState<string | null>(null);
-const [documentImageUrl, setDocumentImageUrl] = useState<string | null>(null);
+const [documentFilePaths, setDocumentFilePaths] = useState<Record<string, string>>({});
+const [uploadedDocuments, setUploadedDocuments] = useState<Record<string, string>>({});
+const [isDocumentUploading, setIsDocumentUploading] = useState(false);
+
 // passport state in form 4
 const [passportFilePath, setPassportFilePath] = useState<string | null>(null);
 const [passportImageUrl, setPassportImageUrl] = useState<string | null>(null);
 const [isPhotoUploaded, setIsPhotoUploaded] = useState(false);
 const [previousUploadedPhoto, setPreviousUploadedPhoto] = useState<string | null>(null);
 
+const documentTypes = [
+  { key: 'birth_certificate', label: 'Birth Certificate' },
+  { key: 'transfer_certificate', label: 'Transfer Certificate' },
+  { key: 'previous_academic_records', label: 'Previous Academic Records' },
+  { key: 'address_proof', label: 'Address Proof' },
+  { key: 'id_proof', label: 'ID Proof' },
+  { key: 'medical_certificate', label: 'Medical Certificate' },
+  { key: 'vaccination_certificate', label: 'Vaccination Certificate' },
+  { key: 'other_documents', label: 'Other Documents' },
+];
 
 
-
-  const handleDocumentOpen = async () => {
+  const handleDocumentOpen = async (docType: string) => {
   try {
     const file = await open({
       multiple: false,
       directory: false,
-      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif"] }],
+      filters: [{ name: "PDF Documents", extensions: ["pdf"] }],
     });
+
     if (typeof file === 'string') {
-      setDocumentFilePath(file);
+      const fileName = file.split('/').pop() || 'Selected File';
+
+      setDocumentFilePaths(prev => ({
+        ...prev,
+        [docType]: file
+      }));
+
+      // Optional: Show the file name on the chip label
+      setUploadedDocuments(prev => ({
+        ...prev,
+        [docType]: fileName
+      }));
     }
   } catch (err) {
     console.error("[handleDocumentOpen] Error opening file:", err);
+    setSnackbar({
+      open: true,
+      message: 'Failed to select document',
+      severity: 'error'
+    });
   }
 };
+
+const handleSaveDocuments = async () => {
+  if (Object.keys(documentFilePaths).length === 0) {
+    setSnackbar({
+      open: true,
+      message: 'No documents selected to upload',
+      severity: 'warning'
+    });
+    return;
+  }
+
+  setIsDocumentUploading(true);
+
+  try {
+    const newUploadedDocuments: Record<string, string> = {};
+
+    for (const [docType, filePath] of Object.entries(documentFilePaths)) {
+      try {
+        const savedFileName: string = await invoke("save_student_document", {
+          documentPath: filePath,
+          documentType: docType
+        });
+
+        newUploadedDocuments[docType] = savedFileName;
+
+        setFormData(prev => ({
+          ...prev,
+          [docType]: savedFileName
+        }));
+      } catch (error) {
+        console.error(`[handleSaveDocuments] Error saving ${docType}:`, error);
+      }
+    }
+
+    // Clear selection paths (but preserve uploaded doc state)
+    setDocumentFilePaths({});
+
+    // Set only newly uploaded files
+    setUploadedDocuments(prev => ({
+      ...prev,
+      ...newUploadedDocuments
+    }));
+
+    setSnackbar({
+      open: true,
+      message: 'Documents uploaded successfully!',
+      severity: 'success'
+    });
+  } catch (error) {
+    console.error("[handleSaveDocuments] Error saving documents:", error);
+    setSnackbar({
+      open: true,
+      message: 'Failed to save some documents',
+      severity: 'error'
+    });
+  } finally {
+    setIsDocumentUploading(false);
+  }
+};
+
+
 
 const handlePassportOpen = async () => {
   try {
@@ -260,11 +349,6 @@ const handlePassportOpen = async () => {
   }
 };
 
-useEffect(() => {
-  if (documentFilePath) {
-    setDocumentImageUrl(convertFileSrc(documentFilePath));
-  }
-}, [documentFilePath]);
 
 useEffect(() => {
   if (passportFilePath) {
@@ -847,70 +931,85 @@ const handleSave = async () => {
       {/* Left Column - Documents Panel */}
       <Paper elevation={1} sx={{ p: 2, flex: 1 }}>
         <Stack spacing={3}>
-          <Typography variant="h6">Upload Documents</Typography>
+          <Typography variant="h6">Required Documents (PDF only)</Typography>
           
-          {/* Document Type Selector - Disabled */}
-          <TextField
-            select
-            label="Select Document Type"
-            value=""
-            onChange={() => {}}
-            fullWidth
-            disabled
-          >
-            {[
-              { value: 'birth_certificate', label: 'Birth Certificate' },
-              { value: 'transfer_certificate', label: 'Transfer Certificate' },
-              // ... other options
-            ].map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          {/* Document List */}
+          <Stack spacing={2}>
+            {documentTypes.map((doc) => (
+  <Box key={doc.key} sx={{
+    p: 2,
+    border: '1px solid',
+    borderColor: 'divider',
+    borderRadius: 1,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  }}>
+    <Typography>{doc.label}</Typography>
 
-          {/* Select File Button - Disabled */}
-          <Button
-  variant="outlined"
-  startIcon={<CloudUploadIcon />}
-  fullWidth
-  onClick={handleDocumentOpen} // Open file dialog to select document
->
-  Select File
-</Button>
+    {/* If already uploaded and saved to backend */}
+   {formData[doc.key as keyof Student] ? (
+      <Chip
+        label="Uploaded"
+        color="success"
+        onDelete={() => {
+          setUploadedDocuments(prev => {
+            const newDocs = { ...prev };
+            delete newDocs[doc.key];
+            return newDocs;
+          });
 
+          setFormData(prev => ({
+            ...prev,
+            [doc.key]: undefined
+          }));
+        }}
+      />
+    ) : documentFilePaths[doc.key] ? (
+      <Chip
+        label={documentFilePaths[doc.key].split('/').pop() || 'Selected'}
+        onDelete={() => {
+          setDocumentFilePaths(prev => {
+            const newPaths = { ...prev };
+            delete newPaths[doc.key];
+            return newPaths;
+          });
 
-{documentImageUrl && (
-  <Box sx={{ textAlign: "center", my: 1 }}>
-    <img
-      src={documentImageUrl}
-      alt="Document Preview"
-      style={{
-        maxWidth: "100%",
-        maxHeight: "200px",
-        objectFit: "contain",
-        borderRadius: "4px",
-      }}
-    />
+          setUploadedDocuments(prev => {
+            const newDocs = { ...prev };
+            delete newDocs[doc.key];
+            return newDocs;
+          });
+        }}
+      />
+    ) : (
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<CloudUploadIcon />}
+        onClick={() => handleDocumentOpen(doc.key)}
+        disabled={isDocumentUploading}
+      >
+        Select
+      </Button>
+    )}
   </Box>
-)}
+))}
+          </Stack>
 
-
-          {/* Upload Button - Disabled */}
-          <Button
-            variant="contained"
-            disabled
-            fullWidth
-            sx={{ mt: 2 }}
-          >
-            Upload Document
-          </Button>
-
-          {/* Uploaded Documents List - Empty */}
-          <Box>
-            <Typography variant="h6" sx={{ mb: 2 }}>Uploaded Documents</Typography>
-            <Typography variant="body2">No documents uploaded</Typography>
-          </Box>
+          {/* Upload Button - Only shown when documents are selected */}
+          {Object.keys(documentFilePaths).length > 0 && (
+            <Button
+              variant="contained"
+              onClick={handleSaveDocuments}
+              disabled={isDocumentUploading}
+              fullWidth
+              startIcon={<CloudUploadIcon />}
+              sx={{ mt: 2 }}
+            >
+              {isDocumentUploading ? 'Uploading...' : 'Upload Selected Documents'}
+            </Button>
+          )}
         </Stack>
       </Paper>
 

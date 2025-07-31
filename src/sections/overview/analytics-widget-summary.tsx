@@ -236,7 +236,7 @@ export function SchoolBanner({
           sx={{
             width: 128,
             height: 128,
-            objectFit: 'cover',
+            objectFit: 'contain',
             borderRadius: '50%', // ✅ make it round
           }}
         />

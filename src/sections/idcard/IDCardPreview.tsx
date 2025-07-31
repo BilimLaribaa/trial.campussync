@@ -43,6 +43,19 @@ export function IDCardPreview({
   const [fontSize, setFontSize] = useState(16);
   const [fontFamily, setFontFamily] = useState('DM Sans Variable');
   const [fontColor, setFontColor] = useState('#222');
+const [photoBorderRadius, setPhotoBorderRadius] = useState(0);
+const [photoContextMenu, setPhotoContextMenu] = useState<{ anchorEl: HTMLElement | null }>({ anchorEl: null });
+
+const handlePhotoDoubleClick = (event: React.MouseEvent<HTMLElement>) => {
+  event.preventDefault();
+  setPhotoContextMenu({ anchorEl: event.currentTarget as HTMLElement });
+};
+
+const handlePhotoMenuClose = () => {
+  setPhotoContextMenu({ anchorEl: null });
+};
+
+
   const fontFamilies = [
     'DM Sans Variable',
     'Barlow',
@@ -207,6 +220,7 @@ export function IDCardPreview({
         photo.style.width = (photoPosition.width * scaleX) + 'px';
         photo.style.height = (photoPosition.height * scaleY) + 'px';
         photo.style.objectFit = 'cover';
+        photo.style.borderRadius = `${photoBorderRadius}%`;
         cardDiv.appendChild(photo);
       }
       // Overlay all selected fields
@@ -446,29 +460,31 @@ export function IDCardPreview({
                 />
                 {Student[0]?.passport_photo && (
                   <Rnd
-                    default={{ x: 8, y: 8, width: 64, height: 64 }}
-                    minWidth={32}
-                    minHeight={32}
-                    maxWidth={200}
-                    maxHeight={200}
-                    bounds="parent"
-                    style={{ zIndex: 2, position: 'absolute' }}
-                    position={{ x: photoPosition.x, y: photoPosition.y }}
-                    size={{ width: photoPosition.width, height: photoPosition.height }}
-                    onDragStop={handlePhotoDragStop}
-                    onResize={handlePhotoResize}
-                  >
-                    <img
-                      src={Student[0].passport_photo}
-                      alt="Passport Photo"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        display: 'block',
-                      }}
-                    />
-                  </Rnd>
+  default={{ x: 8, y: 8, width: 64, height: 64 }}
+  minWidth={32}
+  minHeight={32}
+  maxWidth={200}
+  maxHeight={200}
+  bounds="parent"
+  style={{ zIndex: 2, position: 'absolute' }}
+  position={{ x: photoPosition.x, y: photoPosition.y }}
+  size={{ width: photoPosition.width, height: photoPosition.height }}
+  onDragStop={handlePhotoDragStop}
+  onResize={handlePhotoResize}
+  onDoubleClick={handlePhotoDoubleClick}
+>
+  <img
+    src={Student[0].passport_photo}
+    alt="Passport Photo"
+    style={{
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      display: 'block',
+      borderRadius: `${photoBorderRadius}%`,
+    }}
+  />
+</Rnd>
                 )}
                 {/* Field Overlays */}
                 {Student[0] && overlays.map((overlay) => {
@@ -521,6 +537,25 @@ export function IDCardPreview({
                     </Rnd>
                   );
                 })}
+                {/* Photo context menu for border radius */}
+<Menu
+  anchorEl={photoContextMenu.anchorEl}
+  open={Boolean(photoContextMenu.anchorEl)}
+  onClose={handlePhotoMenuClose}
+  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+>
+  <Box sx={{ px: 2, py: 1, minWidth: 220 }}>
+    <Typography variant="subtitle2" sx={{ mb: 1 }}>Photo Border Radius</Typography>
+    <Slider
+      min={0}
+      max={50}
+      value={photoBorderRadius}
+      onChange={(_, value) => setPhotoBorderRadius(Number(value))}
+      valueLabelDisplay="auto"
+      valueLabelFormat={(value) => `${value}%`}
+    />
+  </Box>
+</Menu>
                 {/* Context menu for changing field */}
                 <Menu
                   anchorEl={contextMenu.anchorEl}
@@ -569,6 +604,7 @@ export function IDCardPreview({
                     </Box>
                   </Box>
                 </Menu>
+
               </Box>
             ) : designFile?.type === 'application/pdf' ? (
               <embed

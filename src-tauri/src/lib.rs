@@ -31,7 +31,7 @@ async fn read_file_content(path: String) -> Result<Vec<u8>, String> {
 }
 
 
-// functions and hanlde save command functionality for passport photo in add student view start
+// functions and hanlde save command functionality for passport photo and documents in add student view start
 fn generate_filename(filepath: &str) -> String {
   let original_file = Path::new(filepath);
 
@@ -90,7 +90,38 @@ fn delete_passport_photo(file_name: String) -> Result<(), String> {
     Ok(())
 }
 
-// functions and hanlde save command functionality for passport photo in add student view end
+#[tauri::command]
+async fn save_student_document(
+    app_handle: AppHandle,
+    document_path: String,
+    document_type: String,
+) -> Result<String, String> {
+    let original_file = PathBuf::from(&document_path);
+
+    if !original_file.exists() || !original_file.is_file() {
+        return Err("Source file does not exist or is not a file".into());
+    }
+
+    let filepath_str = original_file
+        .to_str()
+        .ok_or("Invalid UTF-8 in file path")?;
+
+    let filename = generate_filename(filepath_str);
+
+    let appdata = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    let documents_folder = appdata.join("Students_Documents");
+    let new_file = documents_folder.join(filename);
+
+    fs::create_dir_all(&documents_folder).map_err(|e| e.to_string())?;
+    fs::copy(&original_file, &new_file).map_err(|e| e.to_string())?;
+
+    Ok(new_file.to_str().ok_or("Failed to convert destination path to string")?.to_string())
+}
+// functions and hanlde save command functionality for passport photo and documents in add student view end
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -130,6 +161,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Enquiry commands
             save_passport_photo,
+            save_student_document,
             delete_passport_photo,
             read_file_content,
             enquiry::create_enquiry,

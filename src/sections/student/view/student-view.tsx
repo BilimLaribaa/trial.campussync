@@ -155,36 +155,40 @@ export function StudentView() {
     students.find(s => s.id === selectedStudentId),
     [students, selectedStudentId]
   );
+
+  
   // Handle student deletion
   const handleDelete = async () => {
-    if (!selectedStudentId) {
-      setSnackbar({
-        open: true,
-        message: 'No student selected',
-        severity: 'warning'
-      });
-      return;
-    }
-    try {
-      setLoading(true);
-      await invoke('delete_student', { id: selectedStudentId });
-      const updatedStudents = await invoke<Student[]>('get_students', { id: null });
-      setStudents(updatedStudents);
+  if (!selectedStudentId) {
+    setSnackbar({
+      open: true,
+      message: 'No student selected',
+      severity: 'warning'
+    });
+    return;
+  }
 
-      setSnackbar({
-        open: true,
-        message: 'Student deleted successfully',
-        severity: 'success'
-      });
-    } catch (err) {  // Changed from 'error' to 'err'
-      console.error('Delete failed:', err);
-      setSnackbar({
-        open: true,
-        message: typeof err === 'string' ? err : 'Failed to delete student',
-        severity: 'error'
-      });
-    }
-  };
+  try {
+    await invoke('delete_student', { id: selectedStudentId });
+
+    setSnackbar({
+      open: true,
+      message: 'Student deleted successfully',
+      severity: 'success'
+    });
+
+    // ✅ Re-fetch student list after deletion, no loader needed
+    fetchData();
+
+  } catch (err) {
+    console.error('Delete failed:', err);
+    setSnackbar({
+      open: true,
+      message: typeof err === 'string' ? err : 'Failed to delete student',
+      severity: 'error'
+    });
+  }
+};
 
 
   const studentListProps = {
@@ -212,39 +216,74 @@ export function StudentView() {
   };
 
   // Fetch data on mount
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     try {
+  //       setLoading(true);
+  //       const [classesData, studentsData] = await Promise.all([
+  //         invoke<Class[]>('get_active_classes'),
+  //         invoke<Student[]>('get_students', { id: null }),
+  //       ]);
+
+  //       const newClassMap = classesData.reduce((acc, cls) => ({
+  //         ...acc,
+  //         [cls.id]: cls.class_name
+  //       }), {} as Record<string, string>);
+
+  //       setClasses(classesData);
+  //       setClassMap(newClassMap);
+  //       setStudents(studentsData);
+  //       setFilteredStudents(studentsData); // Initialize with all students
+
+  //       // Auto-select first student if available
+  //       if (studentsData.length > 0) {
+  //         setSelectedStudentId(studentsData[0].id);
+  //       }
+  //     } catch (err) {
+  //       setError('Failed to load student data');
+  //       console.error(err);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   fetchData();
+  // }, []);
+
+const fetchData = async () => {
+  try {
+    const [classesData, studentsData] = await Promise.all([
+      invoke<Class[]>('get_active_classes'),
+      invoke<Student[]>('get_students', { id: null }),
+    ]);
+
+    const newClassMap = classesData.reduce((acc, cls) => ({
+      ...acc,
+      [cls.id]: cls.class_name
+    }), {} as Record<string, string>);
+
+    setClasses(classesData);
+    setClassMap(newClassMap);
+    setStudents(studentsData);
+
+    const filtered = selectedClass
+      ? studentsData.filter((s) => String(s.class_id) === selectedClass)
+      : studentsData;
+
+    setFilteredStudents(filtered);
+    setSelectedStudentId(filtered.length > 0 ? filtered[0].id : null);
+  } catch (err) {
+    setError('Failed to load student data');
+    console.error(err);
+  }
+};
+
+
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [classesData, studentsData] = await Promise.all([
-          invoke<Class[]>('get_active_classes'),
-          invoke<Student[]>('get_students', { id: null }),
-        ]);
-
-        const newClassMap = classesData.reduce((acc, cls) => ({
-          ...acc,
-          [cls.id]: cls.class_name
-        }), {} as Record<string, string>);
-
-        setClasses(classesData);
-        setClassMap(newClassMap);
-        setStudents(studentsData);
-        setFilteredStudents(studentsData); // Initialize with all students
-
-        // Auto-select first student if available
-        if (studentsData.length > 0) {
-          setSelectedStudentId(studentsData[0].id);
-        }
-      } catch (err) {
-        setError('Failed to load student data');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  setLoading(true);
+  fetchData().finally(() => setLoading(false));
+}, []);
 
   // Fetch table headers
   useEffect(() => {
@@ -341,41 +380,44 @@ export function StudentView() {
 
   // Submit import
   const handleSubmitImport = async () => {
-    if (!headerSelectedClass || studentsToImport.length === 0) {
-      setSnackbar({ open: true, message: 'No students data to import', severity: 'error' });
-      return;
-    }
+  if (!headerSelectedClass || studentsToImport.length === 0) {
+    setSnackbar({ open: true, message: 'No students data to import', severity: 'error' });
+    return;
+  }
 
-    setImportLoading(true);
-    try {
-      const selectedClassObj = classes.find(c => c.class_name === headerSelectedClass);
-      if (!selectedClassObj) throw new Error("Selected class not found");
+  setImportLoading(true);
+  try {
+    const selectedClassObj = classes.find(c => c.class_name === headerSelectedClass);
+    if (!selectedClassObj) throw new Error("Selected class not found");
 
-      const result = await invoke('bulk_create_students', {
-        students: studentsToImport,
-        classId: selectedClassObj.id
-      });
+    const result = await invoke('bulk_create_students', {
+      students: studentsToImport,
+      classId: selectedClassObj.id
+    });
 
-      if (result) {
-        setSnackbar({
-          open: true,
-          message: `Successfully imported ${studentsToImport.length} students`,
-          severity: 'success'
-        });
-        setImportDialogOpen(false);
-        const updatedStudents = await invoke<Student[]>('get_students', { id: null });
-        setStudents(updatedStudents);
-      }
-    } catch (err) {
+    if (result) {
       setSnackbar({
         open: true,
-        message: 'Error importing students: ' + (err as Error).message,
-        severity: 'error'
+        message: `Successfully imported ${studentsToImport.length} students`,
+        severity: 'success'
       });
-    } finally {
-      setImportLoading(false);
+
+      setImportDialogOpen(false);
+
+      // ✅ Refresh all data including class filtering and selection
+      await fetchData();
     }
-  };
+  } catch (err) {
+    setSnackbar({
+      open: true,
+      message: 'Error importing students: ' + (err as Error).message,
+      severity: 'error'
+    });
+  } finally {
+    setImportLoading(false);
+  }
+};
+
 
   if (loading) return (
     <DashboardContent>
@@ -417,14 +459,13 @@ export function StudentView() {
               Edit
             </Button>
             <Button
-              variant="outlined"
-              color="error"
-              onClick={handleDelete}
-              disabled={!selectedStudentId || loading}
-              startIcon={loading ? <CircularProgress size={20} /> : null}
-            >
-              Delete
-            </Button>
+  variant="outlined"
+  color="error"
+  onClick={handleDelete}
+  disabled={!selectedStudentId}
+>
+  Delete
+</Button>
           </Stack>
         </Stack>
 
@@ -432,7 +473,7 @@ export function StudentView() {
 
         <Stack direction="row" spacing={2} alignItems="flex-start">
 
-          <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: '120vh' }}>
+          <Card sx={{ width: '30%', p: 2, bgcolor: '#f7f9fb', height: '120vh', minHeight:300, }}>
             <TextField
               select
               fullWidth
@@ -457,6 +498,7 @@ export function StudentView() {
               width: '70%',
               borderRadius: 3,
               maxHeight: '120vh',
+              minHeight: 300,
               height: 'auto'
             }}
           >

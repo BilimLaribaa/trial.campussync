@@ -1,6 +1,7 @@
+import Cropper from 'react-easy-crop';
 import { appDataDir } from '@tauri-apps/api/path';
-import React, { useEffect, useState } from 'react';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import React, { useEffect, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -8,6 +9,7 @@ import Stack from '@mui/material/Stack';
 import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
+import Slider from '@mui/material/Slider';
 import Divider from '@mui/material/Divider';
 import { alpha } from '@mui/material/styles';
 import MenuItem from '@mui/material/MenuItem';
@@ -100,56 +102,61 @@ export function SchoolProfileDialog({ open, onClose, onSaved }: SchoolProfileDia
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null); 
+    const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+    
+    // Cropper state
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
+    const [zoom, setZoom] = useState(1);
+    const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+    const [cropperOpen, setCropperOpen] = useState(false);
+    const [imageToCrop, setImageToCrop] = useState<string | null>(null);
 
-  useEffect(() => {
-  const fetchSchoolData = async () => {
-    if (!open) return;
+    useEffect(() => {
+        const fetchSchoolData = async () => {
+            if (!open) return;
 
-    setLoading(true);
+            setLoading(true);
 
-    const schoolId = localStorage.getItem('school_id');
-    if (!schoolId) {
-      setError('No school ID found in localStorage.');
-      setLoading(false);
-      return;
-    }
+            const schoolId = localStorage.getItem('school_id');
+            if (!schoolId) {
+                setError('No school ID found in localStorage.');
+                setLoading(false);
+                return;
+            }
 
-    try {
-      const response = await fetch(`${Config.backend}/schools/${schoolId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+            try {
+                const response = await fetch(`${Config.backend}/schools/${schoolId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-      const data = await response.json();
+                const data = await response.json();
 
-      setForm({
-        ...data,
-        alternate_contact_number: data.alternate_contact_number || '',
-        website: data.website || '',
-        school_image: data.school_image || null,
-        is_active: data.is_active !== undefined ? data.is_active : true,
-      });
+                setForm({
+                    ...data,
+                    alternate_contact_number: data.alternate_contact_number || '',
+                    website: data.website || '',
+                    school_image: data.school_image || null,
+                    is_active: data.is_active !== undefined ? data.is_active : true,
+                });
 
-      // Handle image preview
-      if (data.school_image) {
-        setPhotoPreview(`${Config.backend}/uploads/${data.school_image}`);
-      } else {
-        setPhotoPreview(null);
-      }
+                // Handle image preview
+                if (data.school_image) {
+                    setPhotoPreview(`${Config.backend}/uploads/${data.school_image}`);
+                } else {
+                    setPhotoPreview(null);
+                }
 
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+            } catch (err) {
+                console.error(err);
+                setError(err instanceof Error ? err.message : String(err));
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  fetchSchoolData();
-}, [open]);
-
-
+        fetchSchoolData();
+    }, [open]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -163,350 +170,482 @@ const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
         setError(null);
     };
 
+    const onCropComplete = useCallback((_: any, pixels: any) => {
+    setCroppedAreaPixels(pixels);
+}, []);
+
+    const createImage = (url: string): Promise<HTMLImageElement> => 
+    new Promise((resolve, reject) => {
+        const image = new Image();
+        image.addEventListener('load', () => resolve(image));
+        image.addEventListener('error', (err) => reject(err));
+        image.src = url;
+    });
+
+
+    const getCroppedImg = async (imageSrc: string, pixelCrop: any): Promise<Blob> => {
+        const image = await createImage(imageSrc);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            throw new Error('Could not get canvas context');
+        }
+
+        canvas.width = pixelCrop.width;
+        canvas.height = pixelCrop.height;
+
+        ctx.drawImage(
+            image,
+            pixelCrop.x,
+            pixelCrop.y,
+            pixelCrop.width,
+            pixelCrop.height,
+            0,
+            0,
+            pixelCrop.width,
+            pixelCrop.height
+        );
+
+        return new Promise<Blob>((resolve) => {
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    resolve(blob);
+                }
+            }, 'image/jpeg');
+        });
+    };
+
     const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-  try {
-    const filename = file.name.replace(/\s+/g, '_');
-    const arrayBuffer = await file.arrayBuffer();
-    const bytes = Array.from(new Uint8Array(arrayBuffer));
+        // Check file size (3MB max)
+        if (file.size > 3 * 1024 * 1024) {
+            setError('Image size must be less than 3MB');
+            return;
+        }
 
-    const savedFileName = await invoke<string>('save_image', {
-      filename,
-      data: bytes,
-    });
+        // Create preview URL and show cropper
+        const imageUrl = URL.createObjectURL(file);
+        setImageToCrop(imageUrl);
+        setCropperOpen(true);
+    };
 
-    const savedPath = await invoke<string>('get_image_path', {
-      filename: savedFileName,
-    });
+    const handleSaveCroppedImage = async () => {
+        if (!imageToCrop || !croppedAreaPixels) {
+            setError('No image to crop');
+            return;
+        }
 
-    const savedBlob = new Blob([arrayBuffer], { type: file.type });
-    const localFile = new File([savedBlob], savedFileName, { type: file.type });
+        try {
+            const croppedBlob = await getCroppedImg(imageToCrop, croppedAreaPixels);
+            
+            // Create a File from the Blob
+            const croppedFile = new File([croppedBlob], `cropped_${Date.now()}.jpg`, {
+                type: 'image/jpeg',
+            });
 
-    setSelectedImageFile(localFile); // ✅ This will be used in the API call
+            // Process the cropped file as before
+            const filename = croppedFile.name.replace(/\s+/g, '_');
+            const arrayBuffer = await croppedFile.arrayBuffer();
+            const bytes = Array.from(new Uint8Array(arrayBuffer));
 
-    setForm(prev => ({
-      ...prev,
-      school_image: savedFileName, // Optional: still storing filename in form
-    }));
+            const savedFileName = await invoke<string>('save_image', {
+                filename,
+                data: bytes,
+            });
 
-    setPhotoPreview(convertFileSrc(savedPath)); // For preview
-  } catch (err) {
-    console.error('Failed to save image:', err);
-    setError('Failed to upload image. Please try again.');
-  }
-};
+            const savedPath = await invoke<string>('get_image_path', {
+                filename: savedFileName,
+            });
 
+            setSelectedImageFile(croppedFile);
+            setForm(prev => ({
+                ...prev,
+                school_image: savedFileName,
+            }));
 
-const handleSave = async () => {
-  if (!form.school_name.trim()) {
-    setError('School name is required');
-    return;
-  }
+            setPhotoPreview(convertFileSrc(savedPath));
+            setCropperOpen(false);
+            
+            // Clean up the object URL
+            if (imageToCrop) {
+                URL.revokeObjectURL(imageToCrop);
+            }
+        } catch (err) {
+            console.error('Failed to crop image:', err);
+            setError('Failed to crop image. Please try again.');
+        }
+    };
 
-  const schoolId = localStorage.getItem('school_id');
-  if (!schoolId) {
-    setError('No school ID found in localStorage.');
-    return;
-  }
+    const handleSave = async () => {
+        if (!form.school_name.trim()) {
+            setError('School name is required');
+            return;
+        }
 
-  const apiUrl = `${Config.backend}/schools/${schoolId}`;
-  const formData = new FormData();
+        const schoolId = localStorage.getItem('school_id');
+        if (!schoolId) {
+            setError('No school ID found in localStorage.');
+            return;
+        }
 
-  formData.append('school_name', form.school_name);
-  formData.append('school_board', form.school_board);
-  formData.append('school_medium', form.school_medium);
-  formData.append('principal_name', form.principal_name);
-  formData.append('contact_number', form.contact_number);
-  formData.append('alternate_contact_number', form.alternate_contact_number || '');
-  formData.append('school_email', form.school_email);
-  formData.append('address', form.address);
-  formData.append('city', form.city);
-  formData.append('state', form.state);
-  formData.append('pincode', form.pincode);
-  formData.append('website', form.website || '');
+        const apiUrl = `${Config.backend}/schools/${schoolId}`;
+        const formData = new FormData();
 
-  // ✅ Send actual image file
-  if (selectedImageFile) {
-    formData.append('school_image', selectedImageFile);
-  }
+        formData.append('school_name', form.school_name);
+        formData.append('school_board', form.school_board);
+        formData.append('school_medium', form.school_medium);
+        formData.append('principal_name', form.principal_name);
+        formData.append('contact_number', form.contact_number);
+        formData.append('alternate_contact_number', form.alternate_contact_number || '');
+        formData.append('school_email', form.school_email);
+        formData.append('address', form.address);
+        formData.append('city', form.city);
+        formData.append('state', form.state);
+        formData.append('pincode', form.pincode);
+        formData.append('website', form.website || '');
 
-  setLoading(true);
-  setError(null);
+        if (selectedImageFile) {
+            formData.append('school_image', selectedImageFile);
+        }
 
-  console.log(form);
+        setLoading(true);
+        setError(null);
 
-  try {
-    const response = await fetch(apiUrl, {
-      method: 'PUT',
-      body: formData,
-    });
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'PUT',
+                body: formData,
+            });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API error: ${response.status} - ${errorText}`);
-    }
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API error: ${response.status} - ${errorText}`);
+            }
 
-    const updated = await response.json();
-    onSaved(updated);
-    onClose();
-  } catch (err: any) {
-    console.error('Save failed:', err);
-    setError('Failed to save school profile to API.');
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-
+            const updated = await response.json();
+            onSaved(updated);
+            onClose();
+        } catch (err: any) {
+            console.error('Save failed:', err);
+            setError('Failed to save school profile to API.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
-        <Dialog
-            open={open}
-            onClose={onClose}
-            maxWidth="md"
-            fullWidth
-            PaperProps={{
-                sx: { borderRadius: 2 }
-            }}
-        >
-            <DialogTitle>
-                <Stack spacing={1}>
-                    <Typography variant="h4">
-                        Edit School Profile
-                    </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography
-                            variant="body2"
-                            sx={{
-                                color: 'text.primary',
-                                fontWeight: 500,
-                            }}
-                        >
-                            Dashboard
+        <>
+            <Dialog
+                open={open}
+                onClose={onClose}
+                maxWidth="md"
+                fullWidth
+                PaperProps={{
+                    sx: { borderRadius: 2 }
+                }}
+            >
+                <DialogTitle>
+                    <Stack spacing={1}>
+                        <Typography variant="h4">
+                            Edit School Profile
                         </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.disabled' }}>•</Typography>
-                        <Typography
-                            variant="body2"
-                            sx={{
-                                color: 'text.primary',
-                                fontWeight: 500,
-                            }}
-                        >
-                            School
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.disabled' }}>•</Typography>
-                        <Typography variant="body2" sx={{ color: 'text.disabled' }}>
-                            Edit Profile
-                        </Typography>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: 'text.primary',
+                                    fontWeight: 500,
+                                }}
+                            >
+                                Dashboard
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.disabled' }}>•</Typography>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: 'text.primary',
+                                    fontWeight: 500,
+                                }}
+                            >
+                                School
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.disabled' }}>•</Typography>
+                            <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+                                Edit Profile
+                            </Typography>
+                        </Stack>
                     </Stack>
-                </Stack>
-            </DialogTitle>
+                </DialogTitle>
 
-            <Divider />
+                <Divider />
 
-            <DialogContent>
-                <Box sx={{ p: 3 }}>
-                    <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-                        {/* Photo Upload Section */}
-                        <Box sx={{ gridColumn: 'span 2', mb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <label htmlFor="photo-upload">
-                                    <StyledUploadBox>
-                                        {photoPreview ? (
-                                            <Box
-                                                component="img"
-                                                src={photoPreview}
-                                                sx={{
-                                                    width: '100%',
-                                                    height: '100%',
-                                                    objectFit: 'cover',
-                                                }}
-                                            />
-                                        ) : (
-                                            <Stack spacing={0.5} alignItems="center">
-                                                <CameraAltOutlinedIcon sx={{ color: 'text.disabled', width: 32, height: 32 }} />
-                                                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                                                    Upload photo
-                                                </Typography>
-                                            </Stack>
-                                        )}
-                                    </StyledUploadBox>
-                                    <VisuallyHiddenInput
-                                        id="photo-upload"
-                                        type="file"
-                                        accept="image/jpeg,image/jpg,image/png,image/gif"
-                                        onChange={handlePhotoChange}
-                                    />
-                                </label>
+                <DialogContent>
+                    <Box sx={{ p: 3 }}>
+                        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+                            {/* Photo Upload Section */}
+                            <Box sx={{ gridColumn: 'span 2', mb: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <label htmlFor="photo-upload">
+                                        <StyledUploadBox>
+                                            {photoPreview ? (
+                                                <Box
+                                                    component="img"
+                                                    src={photoPreview}
+                                                    sx={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover',
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Stack spacing={0.5} alignItems="center">
+                                                    <CameraAltOutlinedIcon sx={{ color: 'text.disabled', width: 32, height: 32 }} />
+                                                    <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                                                        Upload photo
+                                                    </Typography>
+                                                </Stack>
+                                            )}
+                                        </StyledUploadBox>
+                                        <VisuallyHiddenInput
+                                            id="photo-upload"
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/gif"
+                                            onChange={handlePhotoChange}
+                                        />
+                                    </label>
+                                </Box>
+                                <Box sx={{ textAlign: 'center', mt: 1 }}>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                                        Allowed formats: *.jpeg, *.jpg, *.png, *.gif
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                        Maximum size: 3 MB
+                                    </Typography>
+                                </Box>
                             </Box>
-                            <Box sx={{ textAlign: 'center', mt: 1 }}>
-                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                                    Allowed formats: *.jpeg, *.jpg, *.png, *.gif
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                    Maximum size: 3 MB
-                                </Typography>
+
+                            {/* Form Fields */}
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="School Name"
+                                    name="school_name"
+                                    value={form.school_name}
+                                    onChange={handleChange}
+                                    required
+                                    helperText="Enter the official name of your school"
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="School Board"
+                                    name="school_board"
+                                    value={form.school_board}
+                                    onChange={handleChange}
+                                    required
+                                    helperText="E.g., CBSE, ICSE, State Board"
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="School Medium"
+                                    name="school_medium"
+                                    value={form.school_medium}
+                                    onChange={handleChange}
+                                    required
+                                    helperText="Medium of instruction, e.g., English, Hindi"
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="Principal Name"
+                                    name="principal_name"
+                                    value={form.principal_name}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="Contact Number"
+                                    name="contact_number"
+                                    value={form.contact_number}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="Alternate Contact Number"
+                                    name="alternate_contact_number"
+                                    value={form.alternate_contact_number || ''}
+                                    onChange={handleChange}
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="School Email"
+                                    name="school_email"
+                                    value={form.school_email}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="Address"
+                                    name="address"
+                                    value={form.address}
+                                    onChange={handleChange}
+                                    required
+                                    multiline
+                                    minRows={2}
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="City"
+                                    name="city"
+                                    value={form.city}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="State"
+                                    name="state"
+                                    value={form.state}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="Pincode"
+                                    name="pincode"
+                                    value={form.pincode}
+                                    onChange={handleChange}
+                                    required
+                                />
+                            </Box>
+
+                            <Box>
+                                <TextField
+                                    fullWidth
+                                    label="Website"
+                                    name="website"
+                                    value={form.website || ''}
+                                    onChange={handleChange}
+                                />
                             </Box>
                         </Box>
 
-                        {/* Form Fields */}
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="School Name"
-                                name="school_name"
-                                value={form.school_name}
-                                onChange={handleChange}
-                                required
-                                helperText="Enter the official name of your school"
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="School Board"
-                                name="school_board"
-                                value={form.school_board}
-                                onChange={handleChange}
-                                required
-                                helperText="E.g., CBSE, ICSE, State Board"
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="School Medium"
-                                name="school_medium"
-                                value={form.school_medium}
-                                onChange={handleChange}
-                                required
-                                helperText="Medium of instruction, e.g., English, Hindi"
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="Principal Name"
-                                name="principal_name"
-                                value={form.principal_name}
-                                onChange={handleChange}
-                                required
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="Contact Number"
-                                name="contact_number"
-                                value={form.contact_number}
-                                onChange={handleChange}
-                                required
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="Alternate Contact Number"
-                                name="alternate_contact_number"
-                                value={form.alternate_contact_number || ''}
-                                onChange={handleChange}
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="School Email"
-                                name="school_email"
-                                value={form.school_email}
-                                onChange={handleChange}
-                                required
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="Address"
-                                name="address"
-                                value={form.address}
-                                onChange={handleChange}
-                                required
-                                multiline
-                                minRows={2}
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="City"
-                                name="city"
-                                value={form.city}
-                                onChange={handleChange}
-                                required
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="State"
-                                name="state"
-                                value={form.state}
-                                onChange={handleChange}
-                                required
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="Pincode"
-                                name="pincode"
-                                value={form.pincode}
-                                onChange={handleChange}
-                                required
-                            />
-                        </Box>
-
-                        <Box>
-                            <TextField
-                                fullWidth
-                                label="Website"
-                                name="website"
-                                value={form.website || ''}
-                                onChange={handleChange}
-                            />
-                        </Box>
+                        {error && (
+                            <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+                                {error}
+                            </Typography>
+                        )}
                     </Box>
+                </DialogContent>
 
-                    {error && (
-                        <Typography variant="body2" color="error" sx={{ mt: 2 }}>
-                            {error}
-                        </Typography>
+                <Divider />
+
+                <DialogActions>
+                    <Button color="inherit" onClick={onClose} disabled={loading}>
+                        Cancel
+                    </Button>
+                    <Button variant="contained" onClick={handleSave} disabled={loading}>
+                        {loading ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Cropper Dialog */}
+            <Dialog
+                open={cropperOpen}
+                onClose={() => setCropperOpen(false)}
+                maxWidth="md"
+                fullWidth
+                BackdropProps={{
+                    sx: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.78)',
+                    },
+                }}
+            >
+                <DialogTitle>Crop School Image</DialogTitle>
+                <DialogContent sx={{ backgroundColor: '#333', p: 0 }}>
+                    {imageToCrop ? (
+                        <>
+                            <Box sx={{ position: 'relative', height: 400 }}>
+                                <Cropper
+                                    image={imageToCrop}
+                                    crop={crop}
+                                    zoom={zoom}
+                                    aspect={1.3}
+                                    onCropChange={setCrop}
+                                    onZoomChange={setZoom}
+                                    onCropComplete={onCropComplete}
+                                />
+                            </Box>
+
+                            <Box sx={{ px: 3, py: 2, backgroundColor: '#222' }}>
+                                <Typography variant="body2" color="white" gutterBottom>
+                                    Zoom
+                                </Typography>
+                                <Slider
+                                    min={1}
+                                    max={3}
+                                    step={0}
+                                    value={zoom}
+                                    onChange={(_, value) => setZoom(value as number)}
+                                    valueLabelDisplay="auto"
+                                    sx={{
+                                        color: '#90caf9',
+                                        '& .MuiSlider-thumb': { color: '#fff' },
+                                        '& .MuiSlider-track': { color: '#90caf9' },
+                                        '& .MuiSlider-rail': { color: '#555' },
+                                    }}
+                                />
+                            </Box>
+                        </>
+                    ) : (
+                        <Typography sx={{ p: 2, color: 'white' }}>No image selected</Typography>
                     )}
-                </Box>
-            </DialogContent>
+                </DialogContent>
 
-            <Divider />
-
-            <DialogActions>
-                <Button color="inherit" onClick={onClose} disabled={loading}>
-                    Cancel
-                </Button>
-                <Button variant="contained" onClick={handleSave} disabled={loading}>
-                    {loading ? 'Saving...' : 'Save'}
-                </Button>
-            </DialogActions>
-        </Dialog>
+                <DialogActions>
+                    <Button onClick={() => setCropperOpen(false)} color="secondary">
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSaveCroppedImage} color="primary" variant="contained">
+                        Save Cropped Image
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </>
     );
 }
