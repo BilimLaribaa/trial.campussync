@@ -91,7 +91,7 @@ fn delete_passport_photo(file_name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn save_student_document(
+fn save_student_document(
     app_handle: AppHandle,
     document_path: String,
     document_type: String,
@@ -121,6 +121,7 @@ async fn save_student_document(
 
     Ok(new_file.to_str().ok_or("Failed to convert destination path to string")?.to_string())
 }
+
 // functions and hanlde save command functionality for passport photo and documents in add student view end
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -161,8 +162,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Enquiry commands
             save_passport_photo,
-            save_student_document,
             delete_passport_photo,
+            save_student_document,
             read_file_content,
             enquiry::create_enquiry,
             enquiry::get_enquiry,
@@ -209,7 +210,8 @@ pub fn run() {
             students::update_student_passport_photo,
             students::write_binary_file,
             students::remove_file_cmd,
-        
+            students::delete_student_document,
+            
             // students::copy_file,
             // Image commands
             image::save_image,

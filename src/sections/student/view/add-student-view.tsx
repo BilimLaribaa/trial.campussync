@@ -949,23 +949,49 @@ const handleSave = async () => {
 
     {/* If already uploaded and saved to backend */}
    {formData[doc.key as keyof Student] ? (
-      <Chip
-        label="Uploaded"
-        color="success"
-        onDelete={() => {
-          setUploadedDocuments(prev => {
-            const newDocs = { ...prev };
-            delete newDocs[doc.key];
-            return newDocs;
-          });
+  <Chip
+    label="Uploaded"
+    color="success"
+    onDelete={async () => {
+  const docPath = formData[doc.key as keyof Student] as string;
 
-          setFormData(prev => ({
-            ...prev,
-            [doc.key]: undefined
-          }));
-        }}
-      />
-    ) : documentFilePaths[doc.key] ? (
+  try {
+    if (!formData.id || !docPath) return;
+
+    await invoke('delete_student_document', {
+      student_id: studentId,  // Changed from studentId to student_id
+      file_path: docPath,       // Make sure this matches exactly
+    });
+
+    // Rest of your code remains the same
+    setUploadedDocuments(prev => {
+      const newDocs = { ...prev };
+      delete newDocs[doc.key];
+      return newDocs;
+    });
+
+    setFormData(prev => ({
+      ...prev,
+      [doc.key]: undefined,
+    }));
+
+    setSnackbar({
+      open: true,
+      message: `${doc.label} removed successfully`,
+      severity: 'success',
+    });
+
+  } catch (error) {
+    console.error(`Failed to remove document ${doc.label}:`, error);
+    setSnackbar({
+      open: true,
+      message: `Failed to delete ${doc.label}`,
+      severity: 'error',
+    });
+  }
+}}
+  />
+) : documentFilePaths[doc.key] ? (
       <Chip
         label={documentFilePaths[doc.key].split('/').pop() || 'Selected'}
         onDelete={() => {

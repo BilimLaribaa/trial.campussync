@@ -852,3 +852,62 @@ pub fn remove_file_cmd(path: String) -> Result<(), String> {
     let path = PathBuf::from(path);
     remove_file(&path).map_err(|e| e.to_string())
 }
+// command for deleting docuemnts of students from app directory and database 
+#[tauri::command]
+pub fn delete_student_document(
+    state: tauri::State<'_, DbState>,
+    student_id: i32,        // Make sure this parameter name matches what you're sending
+    file_path: String,      // And this one too
+) -> Result<(), String> {
+    use std::fs::remove_file;
+    use std::path::PathBuf;
+
+    let conn = state.0.lock().unwrap();
+
+    // Fetch only document fields (excluding passport_photo)
+    let query = "
+        SELECT
+            birth_certificate,
+            transfer_certificate,
+            previous_academic_records,
+            address_proof,
+            id_proof,
+            medical_certificate,
+            vaccination_certificate,
+            other_documents
+        FROM students
+        WHERE id = ?1
+    ";
+
+    let mut stmt = conn.prepare(query).map_err(|e| e.to_string())?;
+
+    let doc_paths = stmt.query_row([student_id], |row| {
+        Ok(vec![
+            ("birth_certificate", row.get::<_, Option<String>>(0)?),
+            ("transfer_certificate", row.get::<_, Option<String>>(1)?),
+            ("previous_academic_records", row.get::<_, Option<String>>(2)?),
+            ("address_proof", row.get::<_, Option<String>>(3)?),
+            ("id_proof", row.get::<_, Option<String>>(4)?),
+            ("medical_certificate", row.get::<_, Option<String>>(5)?),
+            ("vaccination_certificate", row.get::<_, Option<String>>(6)?),
+            ("other_documents", row.get::<_, Option<String>>(7)?),
+        ])
+    }).map_err(|e| format!("Failed to fetch document paths: {}", e))?;
+
+    let column = doc_paths
+        .into_iter()
+        .find(|(_, value)| value.as_deref() == Some(&file_path))
+        .map(|(column, _)| column.to_string())
+        .ok_or("File path does not match any known document field.".to_string())?;
+
+    let update_query = format!("UPDATE students SET {} = NULL WHERE id = ?1", column);
+    conn.execute(&update_query, [student_id])
+        .map_err(|e| format!("Failed to update DB: {}", e))?;
+
+    let path = PathBuf::from(&file_path);
+    if path.exists() && path.is_file() {
+        remove_file(path).map_err(|e| format!("Failed to delete file: {}", e))?;
+    }
+
+    Ok(())
+}
