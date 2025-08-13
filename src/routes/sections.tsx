@@ -28,6 +28,8 @@ export const ClassPage = lazy(() => import('src/pages/class'));
 export const StaffPage = lazy(() => import('src/pages/staff'));
 export const AddStaffView = lazy(() => import('src/sections/staff/add-staff-container'));
 export const FullCalendarViewPage = lazy(() => import('src/pages/full-calendar-view'));
+export const FeesPage = lazy(() => import('src/pages/fees'));
+export const StudentFeesPage = lazy(() => import('src/pages/student-fees'));
 
 // This is a small edit to trigger re-evaluation
 const renderFallback = () => (
@@ -83,7 +85,9 @@ export const routesSection: RouteObject[] = [
       { path: 'staff/add', element: <AddStaffView /> },
       { path: 'blog', element: <BlogPage /> },
       { path: 'calendar', element: <FullCalendarViewPage /> },
-      
+      { path: 'fees', element: <FeesPage /> },
+      { path: 'fees/details', element: <StudentFeesPage /> },
+
     ],
   },
   {

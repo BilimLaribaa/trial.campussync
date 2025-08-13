@@ -52,6 +52,16 @@ export const navData = [
     title: 'ID CARD',
     path: '/Dashboard/idcard',
     icon: icon('ic-user'),
-  }
+  },
+  {
+    title: 'Fees Structure',
+    path: '/Dashboard/Fees',
+    icon: icon('ic-user'),
+  },
+  {
+    title: 'Student Fees',
+    path: '/Dashboard/Fees/details',
+    icon: icon('ic-user'),
+  },
 
 ];

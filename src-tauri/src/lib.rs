@@ -8,6 +8,7 @@ mod migration;
 mod school;
 mod staff;
 mod students;
+mod fees;
 
 use db::establish_connection;
 use log::error;
@@ -223,6 +224,15 @@ pub fn run() {
             academic_year::get_all_academic_years,
             academic_year::set_current_academic_year,
             academic_year::delete_academic_year,
+             // Fees commands
+    fees::save_fee_type,
+    fees::get_fee_types,
+    fees::get_fee_type,
+    fees::delete_fee_type,
+    fees::save_fee_section,
+    fees::get_fee_sections,
+    fees::get_fee_section,
+    fees::delete_fee_section,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
