@@ -225,14 +225,19 @@ pub fn run() {
             academic_year::set_current_academic_year,
             academic_year::delete_academic_year,
              // Fees commands
-    fees::save_fee_type,
-    fees::get_fee_types,
-    fees::get_fee_type,
-    fees::delete_fee_type,
-    fees::save_fee_section,
-    fees::get_fee_sections,
-    fees::get_fee_section,
-    fees::delete_fee_section,
+            fees::save_fee_type,
+            fees::get_fee_types,
+            fees::get_fee_type,
+            fees::delete_fee_type,
+            fees::save_fee_section,
+            fees::get_fee_sections,
+            fees::get_fee_section,
+            fees::delete_fee_section,
+            fees::save_fee_structure,
+            fees::get_fee_structures,
+            fees::get_fee_structure,
+            fees::delete_fee_structure,
+            // fees::get_fee_structures_by_category
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

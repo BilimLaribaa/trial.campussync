@@ -260,3 +260,132 @@ pub fn delete_fee_section(state: State<'_, DbState>, id: i64) -> Result<(), Stri
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+// ---------------------------
+// Commands for Fee Structure
+// ---------------------------
+
+#[tauri::command]
+pub fn save_fee_structure(state: State<'_, DbState>, fee_structure: FeeStructure) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    if let Some(id) = fee_structure.id {
+        conn.execute(
+            "UPDATE fee_structure SET 
+                student_category = ?, 
+                fee_type = ?, 
+                monthly = ?, 
+                yearly = ?, 
+                late_payment_penalty_pct = ? 
+             WHERE id = ?",
+            params![
+                fee_structure.student_category,
+                fee_structure.fee_type,
+                fee_structure.monthly,
+                fee_structure.yearly,
+                fee_structure.late_payment_penalty_pct,
+                id
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "INSERT INTO fee_structure 
+                (student_category, fee_type, monthly, yearly, late_payment_penalty_pct) 
+             VALUES (?, ?, ?, ?, ?)",
+            params![
+                fee_structure.student_category,
+                fee_structure.fee_type,
+                fee_structure.monthly,
+                fee_structure.yearly,
+                fee_structure.late_payment_penalty_pct
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_fee_structures(state: State<'_, DbState>) -> Result<Vec<FeeStructure>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, student_category, fee_type, monthly, yearly, late_payment_penalty_pct 
+         FROM fee_structure 
+         ORDER BY student_category, fee_type"
+    )
+    .map_err(|e| e.to_string())?;
+
+    let result = stmt.query_map([], |row| {
+        Ok(FeeStructure {
+            id: row.get(0)?,
+            student_category: row.get(1)?,
+            fee_type: row.get(2)?,
+            monthly: row.get(3)?,
+            yearly: row.get(4)?,
+            late_payment_penalty_pct: row.get(5)?,
+        })
+    })
+    .map_err(|e| e.to_string())?;
+
+    Ok(result.filter_map(Result::ok).collect())
+}
+
+#[tauri::command]
+pub fn get_fee_structure(state: State<'_, DbState>, id: i64) -> Result<FeeStructure, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.query_row(
+        "SELECT id, student_category, fee_type, monthly, yearly, late_payment_penalty_pct 
+         FROM fee_structure 
+         WHERE id = ?",
+        params![id],
+        |row| {
+            Ok(FeeStructure {
+                id: row.get(0)?,
+                student_category: row.get(1)?,
+                fee_type: row.get(2)?,
+                monthly: row.get(3)?,
+                yearly: row.get(4)?,
+                late_payment_penalty_pct: row.get(5)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_fee_structure(state: State<'_, DbState>, id: i64) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM fee_structure WHERE id = ?", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_fee_structures_by_category(
+    state: State<'_, DbState>, 
+    category: String
+) -> Result<Vec<FeeStructure>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT id, student_category, fee_type, monthly, yearly, late_payment_penalty_pct 
+         FROM fee_structure 
+         WHERE student_category = ?
+         ORDER BY fee_type"
+    )
+    .map_err(|e| e.to_string())?;
+
+    let result = stmt.query_map(params![category], |row| {
+        Ok(FeeStructure {
+            id: row.get(0)?,
+            student_category: row.get(1)?,
+            fee_type: row.get(2)?,
+            monthly: row.get(3)?,
+            yearly: row.get(4)?,
+            late_payment_penalty_pct: row.get(5)?,
+        })
+    })
+    .map_err(|e| e.to_string())?;
+
+    Ok(result.filter_map(Result::ok).collect())
+}

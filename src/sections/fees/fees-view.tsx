@@ -1,9 +1,10 @@
+import { invoke } from '@tauri-apps/api/core';
 import { useState, useEffect, useMemo } from 'react';
 
 import {
   Box, Card, Table, Stack, Button, Alert,
   TableBody, TableCell, TableHead, TableRow, TableContainer,
-  TablePagination, IconButton, Typography, TextField, Menu, 
+  TablePagination, IconButton, Typography, TextField, Menu,
   MenuItem, Checkbox, ListItemText, Snackbar
 } from '@mui/material';
 
@@ -48,11 +49,7 @@ const allColumns = [
 ];
 
 export function FeesView() {
-  const [fees, setFees] = useState<FeeStructure[]>(() => {
-    const saved = localStorage.getItem('feeStructures');
-    return saved ? JSON.parse(saved) : [];
-  });
-
+  const [fees, setFees] = useState<FeeStructure[]>([]);
   const [feeSections, setFeeSections] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -61,7 +58,7 @@ export function FeesView() {
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [showSettings, setShowSettings] = useState(false); // Initialize as false
+  const [showSettings, setShowSettings] = useState(false);
   const [editingFee, setEditingFee] = useState<FeeStructure | null>(null);
 
   const [snackbar, setSnackbar] = useState({
@@ -70,74 +67,88 @@ export function FeesView() {
     severity: 'success' as 'success' | 'error' | 'info' | 'warning',
   });
 
-  // Load fee sections from localStorage
+  // Load fee structures from database
+  const loadFeeStructures = async () => {
+  try {
+    const data: any[] = await invoke('get_fee_structures');
+    const transformedData = data.map(item => ({
+      id: item.id.toString(),
+      category: item.student_category,
+      fee_items: [{
+        fee_type: item.fee_type,
+        amount: item.monthly > 0 ? item.monthly : item.yearly,
+        start_date: item.start_date || '', // Use actual start_date from database if available
+        end_date: item.end_date || '',    // Use actual end_date from database if available
+        late_payment_penalty: `${item.late_payment_penalty_pct}%`
+      }]
+    }));
+    setFees(transformedData);
+
+    const categories = [...new Set(transformedData.map(item => item.category))];
+    setFeeSections(categories);
+  } catch (error) {
+    console.error('Failed to load fee structures:', error);
+    setSnackbar({
+      open: true,
+      message: 'Failed to load fee structures',
+      severity: 'error'
+    });
+  }
+};
+
+  const handleEdit = async (feeId: string) => {
+  try {
+    const feeData: any = await invoke('get_fee_structure', { id: Number(feeId) });
+    const feeToEdit = {
+      id: feeData.id.toString(),
+      category: feeData.student_category,
+      fee_items: [{
+        fee_type: feeData.fee_type,
+        amount: feeData.monthly > 0 ? feeData.monthly : feeData.yearly,
+        start_date: feeData.start_date || '', // Use actual start_date from database
+        end_date: feeData.end_date || '',    // Use actual end_date from database
+        late_payment_penalty: `${feeData.late_payment_penalty_pct}%`
+      }]
+    };
+    setEditingFee(feeToEdit);
+    setShowSettings(true);
+  } catch (error) {
+    console.error('Failed to load fee for editing:', error);
+    setSnackbar({
+      open: true,
+      message: 'Failed to load fee for editing',
+      severity: 'error'
+    });
+  }
+};
+
   useEffect(() => {
-    const loadFeeSections = () => {
-      const savedSections = localStorage.getItem('feeSections');
-      if (savedSections) {
-        const sections = JSON.parse(savedSections);
-        setFeeSections(sections.map((section: { name: string }) => section.name));
-      } else {
-        setFeeSections(['Pre-Primary', 'Primary', 'Secondary']);
-      }
-    };
-
-    loadFeeSections();
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'feeSections') {
-        loadFeeSections();
-      }
-      if (e.key === 'feeStructures') {
-        setFees(e.newValue ? JSON.parse(e.newValue) : []);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    loadFeeStructures();
   }, []);
 
-  useEffect(() => {
-    const handleFeeUpdate = (event: CustomEvent) => {
-      const saved = localStorage.getItem('feeStructures');
-      setFees(saved ? JSON.parse(saved) : []);
-      
-      setSnackbar({
-        open: true,
-        message: event.detail.message,
-        severity: event.detail.severity
-      });
-    };
 
-    window.addEventListener('feeStructureUpdated', handleFeeUpdate as EventListener);
-    
-    return () => {
-      window.removeEventListener('feeStructureUpdated', handleFeeUpdate as EventListener);
-    };
-  }, []);
-
-  const handleEdit = (feeId: string) => {
-    const feeToEdit = fees.find(f => f.id === feeId);
-    if (feeToEdit) {
-      setEditingFee(feeToEdit);
-      setShowSettings(true); // Explicitly open settings
-    }
-  };
-
-  const handleDelete = (feeId: string) => {
+  const handleDelete = async (feeId: string) => {  // Changed parameter type to string
     if (!confirm('Are you sure you want to delete this fee structure? This action cannot be undone.')) {
       return;
     }
-    
-    const updatedFees = fees.filter(f => f.id !== feeId);
-    setFees(updatedFees);
-    localStorage.setItem('feeStructures', JSON.stringify(updatedFees));
-    
-    setSnackbar({
-      open: true,
-      message: 'Fee structure deleted successfully!',
-      severity: 'success'
-    });
+
+    try {
+      await invoke('delete_fee_structure', { id: Number(feeId) });  // Convert to number for the command
+      await loadFeeStructures();
+
+      setSnackbar({
+        open: true,
+        message: 'Fee structure deleted successfully!',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Failed to delete fee structure:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to delete fee structure',
+        severity: 'error'
+      });
+    }
   };
 
   const toggleColumn = (id: string) => {
@@ -159,12 +170,12 @@ export function FeesView() {
         category: fee.category
       }))
     )
-    .filter(item => {
-      const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-      const matchesSearch = search === '' || 
-        (item.category && item.category.toString().toLowerCase().includes(search.toLowerCase()));
-      return matchesCategory && matchesSearch;
-    })
+      .filter(item => {
+        const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+        const matchesSearch = search === '' ||
+          (item.category && item.category.toString().toLowerCase().includes(search.toLowerCase()));
+        return matchesCategory && matchesSearch;
+      })
   ), [fees, selectedCategory, search]);
 
   return (
@@ -175,7 +186,7 @@ export function FeesView() {
           variant="contained"
           onClick={() => {
             setEditingFee(null);
-            setShowSettings(true); // Explicitly open settings
+            setShowSettings(true);
           }}
           sx={{ ml: 'auto' }}
           startIcon={<Iconify icon="mingcute:add-line" />}
@@ -190,7 +201,7 @@ export function FeesView() {
         onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert 
+        <Alert
           onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
@@ -283,15 +294,15 @@ export function FeesView() {
                         {visibleColumns.has('end_date') && <TableCell>{row.end_date}</TableCell>}
                         {visibleColumns.has('late_payment_penalty') && <TableCell>{row.late_payment_penalty}</TableCell>}
                         <TableCell align="right">
-                          <IconButton 
-                            onClick={() => handleEdit(row.id.split('-')[0])}
+                          <IconButton
+                            onClick={() => handleEdit(row.id.split('-')[0])}  // Already returns string
                             color="primary"
                           >
                             <Iconify icon="solar:pen-bold" width={20} />
                           </IconButton>
                           <IconButton
                             color="error"
-                            onClick={() => handleDelete(row.id.split('-')[0])}
+                            onClick={() => handleDelete(row.id.split('-')[0])}  // Already returns string
                           >
                             <Iconify icon="solar:trash-bin-trash-bold" width={20} />
                           </IconButton>
@@ -318,17 +329,32 @@ export function FeesView() {
         />
       </Card>
 
-      {showSettings && (
-        <Settings 
-          onUpdateEmailSettings={() => {}} 
-          onClose={() => {
-            setShowSettings(false);
-            setEditingFee(null);
-          }}
-          initialActiveTab="feesStructure"
-          editingFee={editingFee}
-        />
-      )}
+    {showSettings && (
+  <Settings 
+    onUpdateEmailSettings={() => {}} 
+    onClose={() => {
+      setShowSettings(false);
+      setEditingFee(null);
+      loadFeeStructures();
+    }}
+    initialActiveTab="feesStructure"
+    editingFee={
+      editingFee
+        ? {
+            id: editingFee.id,
+            category: editingFee.category,
+            fee_items: editingFee.fee_items.map(item => ({
+              fee_type: item.fee_type,
+              amount: item.amount,
+              start_date: item.start_date, // Now contains the actual date
+              end_date: item.end_date,     // Now contains the actual date
+              late_payment_penalty: item.late_payment_penalty,
+            }))
+          }
+        : null
+    }
+  />
+)}
     </DashboardContent>
   );
 }

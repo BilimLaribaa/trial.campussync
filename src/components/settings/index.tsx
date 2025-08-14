@@ -450,62 +450,57 @@ export function Settings({
     setFeeError('');
   };
 
-  const submitFeeForm = () => {
-    if (Object.keys(categoryFeeMap).length === 0) {
-      setFeeError('At least one category with fee items is required');
-      setSnackbar({
-        open: true,
-        message: 'Error: Please add at least one fee item',
-        severity: 'error'
-      });
-      return;
-    }
+  const submitFeeForm = async () => {
+  if (Object.keys(categoryFeeMap).length === 0) {
+    setFeeError('At least one category with fee items is required');
+    setSnackbar({
+      open: true,
+      message: 'Error: Please add at least one fee item',
+      severity: 'error'
+    });
+    return;
+  }
 
-    try {
-      let updatedStructures: FeeStructure[];
-      
-      if (editingFee) {
-        // Update existing fee structure
-        updatedStructures = feeStructures.map(fee => 
-          fee.id === editingFee.id 
-            ? { ...fee, fee_items: categoryFeeMap[fee.category] || [] } 
-            : fee
-        );
-      } else {
-        // Create new fee structures
-        const newStructures: FeeStructure[] = Object.entries(categoryFeeMap).map(([category, feeItems]) => ({
-          id: uuidv4(),
-          category,
-          fee_items: feeItems,
-        }));
-        updatedStructures = [...feeStructures, ...newStructures];
+  try {
+    // Convert our frontend data structure to match the Rust FeeStructure type
+    for (const [category, feeItems] of Object.entries(categoryFeeMap)) {
+      for (const feeItem of feeItems) {
+        const feeStructureData = {
+          id: editingFee?.id || null, // Pass null for new entries
+          student_category: category,
+          fee_type: feeItem.fee_type,
+          monthly: feeItem.amount, // Assuming amount is monthly
+          yearly: feeItem.amount * 12, // Calculate yearly from monthly
+          late_payment_penalty_pct: parseFloat(feeItem.late_payment_penalty.replace('%', '')),
+        };
+
+        // Call the Tauri command to save to database
+        await invoke("save_fee_structure", { feeStructure: feeStructureData });
       }
-
-      setFeeStructures(updatedStructures);
-      localStorage.setItem(FEE_STRUCTURES_KEY, JSON.stringify(updatedStructures));
-      
-      // Dispatch custom event with the success message
-      window.dispatchEvent(new CustomEvent('feeStructureUpdated', {
-        detail: {
-          message: editingFee 
-            ? 'Fee structure updated successfully!' 
-            : 'Fee structure created successfully!',
-          severity: 'success'
-        }
-      }));
-
-      // Close the form
-      resetFeeForm();
-      handleClose();
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: 'Error saving fee structure',
-        severity: 'error'
-      });
-      console.error('Failed to save fee structure:', error);
     }
-  };
+    
+    // Dispatch custom event with the success message
+    window.dispatchEvent(new CustomEvent('feeStructureUpdated', {
+      detail: {
+        message: editingFee 
+          ? 'Fee structure updated successfully!' 
+          : 'Fee structure created successfully!',
+        severity: 'success'
+      }
+    }));
+
+    // Close the form
+    resetFeeForm();
+    handleClose();
+  } catch (error) {
+    setSnackbar({
+      open: true,
+      message: 'Error saving fee structure',
+      severity: 'error'
+    });
+    console.error('Failed to save fee structure:', error);
+  }
+};
 
   // Add Fee Type
   const handleAddOrUpdateFeeType = async () => {

@@ -11,5 +11,6 @@ pub fn run_migrations(conn: &Connection) -> Result<(), Box<dyn std::error::Error
     crate::staff::init_staff_table(conn)?;
     crate::students::init_student_table(conn)?;
     crate::academic_year::init_academic_year_table(conn)?;
+    crate::fees::init_fee_tables(conn)?;
     Ok(())
 }
